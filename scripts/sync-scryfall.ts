@@ -193,6 +193,17 @@ async function main(): Promise<void> {
   await pipeline(nodeStream, parser(), streamArray(), sink);
   await flush();
 
+  // F-4: recompute cheapest printing per oracle card from the freshly synced data.
+  console.log("[sync] refreshing card_cheapest…");
+  const { error: rpcErr } = await supabase.rpc("refresh_card_cheapest");
+  if (rpcErr) {
+    // Non-fatal: card data is loaded; cheapest can be recomputed on the next run.
+    errors++;
+    console.error(`[sync] card_cheapest refresh failed: ${rpcErr.message}`);
+  } else {
+    console.log("[sync] card_cheapest refreshed.");
+  }
+
   const secs = ((Date.now() - started) / 1000).toFixed(0);
   console.log(
     `[sync] done in ${secs}s — processed ${processed}, upserted ${upserted}, skipped ${skipped}, batch-errors ${errors}`
