@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -36,8 +37,16 @@ export default async function AccountPage() {
         </div>
       </div>
 
-      <div>
+      <div className="flex items-center gap-4">
         <SignOutButton />
+        {profile?.handle && (
+          <Link
+            href={`/users/${profile.handle}`}
+            className="text-muted-foreground hover:text-foreground text-sm"
+          >
+            View public profile →
+          </Link>
+        )}
       </div>
     </main>
   );

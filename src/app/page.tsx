@@ -52,9 +52,6 @@ export default function Home() {
         ))}
       </section>
 
-      <footer className="text-muted-foreground text-xs">
-        Phase 0 · F-1 scaffold · Next.js + Tailwind + shadcn/ui
-      </footer>
     </main>
   );
 }

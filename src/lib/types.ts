@@ -42,6 +42,8 @@ export interface PricedCard {
   name: string;
   type_line: string | null;
   cmc: number | null;
+  set_code: string | null;
+  collector_number: string | null;
   board: Board;
   quantity: number;
   counts_toward_budget: boolean;
@@ -49,6 +51,43 @@ export interface PricedCard {
   unit_bling: number | null;
   line_cheapest: number | null;
   line_bling: number | null;
+}
+
+export interface ArticleSummary {
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  published_at: string | null;
+}
+
+export interface Article {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  body_md: string;
+  featured_cards: string[];
+  author_id: string | null;
+  published_at: string | null;
+}
+
+export interface BrowseDeck {
+  id: string;
+  name: string;
+  game_format: string;
+  threshold_amount: number | null;
+  owner_handle: string | null;
+  budget_price: number;
+  card_count: number;
+  like_count: number;
+  updated_at: string;
+}
+
+export interface LockIn {
+  budget_price: number;
+  bling_price: number | null;
+  locked_at: string;
+  kind: "creator" | "visitor";
 }
 
 export interface SearchCard {

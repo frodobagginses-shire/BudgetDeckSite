@@ -194,12 +194,15 @@ async function main(): Promise<void> {
   await flush();
 
   // F-4: recompute cheapest printing per oracle card from the freshly synced data.
+  // Non-fatal: the card data (the critical part) is already saved, so a slow or
+  // failed refresh is a warning — it does not fail the job. Budget prices may be
+  // stale until the next successful refresh.
   console.log("[sync] refreshing card_cheapest…");
   const { error: rpcErr } = await supabase.rpc("refresh_card_cheapest");
   if (rpcErr) {
-    // Non-fatal: card data is loaded; cheapest can be recomputed on the next run.
-    errors++;
-    console.error(`[sync] card_cheapest refresh failed: ${rpcErr.message}`);
+    console.warn(
+      `[sync] WARNING: card_cheapest refresh failed (${rpcErr.message}). Card data updated; cheapest prices may be stale until the next run.`
+    );
   } else {
     console.log("[sync] card_cheapest refreshed.");
   }

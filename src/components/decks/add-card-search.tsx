@@ -11,6 +11,7 @@ export function AddCardSearch({ deckId }: { deckId: string }) {
   const [results, setResults] = useState<SearchCard[]>([]);
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
   const router = useRouter();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -39,7 +40,12 @@ export function AddCardSearch({ deckId }: { deckId: string }) {
 
   const add = (oracleId: string) => {
     startTransition(async () => {
-      await addCard(deckId, oracleId);
+      const res = await addCard(deckId, oracleId);
+      if (!res.ok) {
+        setMsg(res.message ?? "Couldn't add that card.");
+        return;
+      }
+      setMsg(null);
       setQ("");
       setResults([]);
       setOpen(false);
@@ -76,6 +82,7 @@ export function AddCardSearch({ deckId }: { deckId: string }) {
           ))}
         </ul>
       )}
+      {msg && <p className="text-destructive mt-1 text-xs">{msg}</p>}
     </div>
   );
 }

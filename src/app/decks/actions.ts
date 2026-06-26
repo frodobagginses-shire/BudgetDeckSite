@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Board } from "@/lib/types";
+import type { Board, DeckTotals } from "@/lib/types";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -64,27 +64,153 @@ export async function deleteDeck(deckId: string) {
   redirect("/decks");
 }
 
-/** Add a card by oracle id; resolves to the cheapest printing as the default. */
-export async function addCard(deckId: string, oracleId: string) {
+/** Like or unlike a deck (toggle). */
+export async function toggleLike(deckId: string) {
+  const { supabase, user } = await requireUser();
+  const { data: existing } = await supabase
+    .from("deck_likes")
+    .select("deck_id")
+    .eq("deck_id", deckId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (existing) {
+    await supabase
+      .from("deck_likes")
+      .delete()
+      .eq("deck_id", deckId)
+      .eq("user_id", user.id);
+  } else {
+    await supabase.from("deck_likes").insert({
+      deck_id: deckId,
+      user_id: user.id,
+    });
+  }
+  revalidatePath(`/decks/${deckId}`);
+}
+
+/** Update a deck's primer (Markdown description). */
+export async function updateDeckPrimer(deckId: string, formData: FormData) {
+  const { supabase } = await requireUser();
+  const description_md = String(formData.get("description_md") || "");
+  await supabase
+    .from("decks")
+    .update({ description_md: description_md || null })
+    .eq("id", deckId);
+  revalidatePath(`/decks/${deckId}`);
+}
+
+/** Fork/copy a deck into the current user's decks, optionally linking back. */
+export async function forkDeck(deckId: string, linkBack: boolean) {
+  const { supabase, user } = await requireUser();
+
+  const { data: src } = await supabase
+    .from("decks")
+    .select("name, game_format, threshold_amount, threshold_currency, description_md")
+    .eq("id", deckId)
+    .maybeSingle();
+  if (!src) return;
+
+  const { data: created, error } = await supabase
+    .from("decks")
+    .insert({
+      owner_id: user.id,
+      name: src.name,
+      game_format: src.game_format,
+      threshold_amount: src.threshold_amount,
+      threshold_currency: src.threshold_currency ?? "USD",
+      visibility: "private",
+      description_md: src.description_md,
+      parent_deck_id: linkBack ? deckId : null,
+      show_lineage: linkBack,
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    throw new Error(error?.message ?? "Could not copy deck");
+  }
+
+  const { data: srcCards } = await supabase
+    .from("deck_cards")
+    .select("scryfall_id, quantity, board, counts_toward_budget")
+    .eq("deck_id", deckId);
+  if (srcCards && srcCards.length) {
+    await supabase.from("deck_cards").insert(
+      srcCards.map((c) => ({
+        deck_id: created.id,
+        scryfall_id: c.scryfall_id,
+        quantity: c.quantity,
+        board: c.board,
+        counts_toward_budget: c.counts_toward_budget,
+      }))
+    );
+  }
+
+  redirect(`/decks/${created.id}`);
+}
+
+export type AddResult = { ok: boolean; message?: string };
+
+/**
+ * Add a card by oracle id; resolves to the cheapest printing as the default.
+ * Enforces format legality (blocks cards not legal in the deck's game format,
+ * unless the format is "casual"). Color-identity enforcement is deferred until
+ * commander designation exists.
+ */
+export async function addCard(
+  deckId: string,
+  oracleId: string
+): Promise<AddResult> {
   const { supabase } = await requireUser();
 
+  const { data: deck } = await supabase
+    .from("decks")
+    .select("game_format")
+    .eq("id", deckId)
+    .maybeSingle();
+  const format = (deck?.game_format ?? "casual") as string;
+
+  // Resolve a printing (cheapest preferred) and pull name + legalities.
   const { data: cheap } = await supabase
     .from("card_cheapest")
     .select("cheapest_scryfall_id")
     .eq("oracle_id", oracleId)
     .maybeSingle();
   let scryfallId = cheap?.cheapest_scryfall_id as string | undefined;
+  let card: { name: string; legalities: Record<string, string> } | null = null;
 
-  if (!scryfallId) {
-    const { data: any1 } = await supabase
+  if (scryfallId) {
+    const { data } = await supabase
       .from("cards")
-      .select("scryfall_id")
+      .select("name, legalities")
+      .eq("scryfall_id", scryfallId)
+      .maybeSingle();
+    if (data) card = data as { name: string; legalities: Record<string, string> };
+  }
+  if (!scryfallId) {
+    const { data } = await supabase
+      .from("cards")
+      .select("scryfall_id, name, legalities")
       .eq("oracle_id", oracleId)
       .limit(1)
       .maybeSingle();
-    scryfallId = any1?.scryfall_id as string | undefined;
+    scryfallId = data?.scryfall_id as string | undefined;
+    if (data)
+      card = {
+        name: data.name as string,
+        legalities: data.legalities as Record<string, string>,
+      };
   }
-  if (!scryfallId) return;
+  if (!scryfallId) return { ok: false, message: "Card not found." };
+
+  if (format !== "casual" && card?.legalities) {
+    const status = card.legalities[format];
+    if (status && status !== "legal" && status !== "restricted") {
+      return {
+        ok: false,
+        message: `${card.name} isn't legal in ${format}.`,
+      };
+    }
+  }
 
   const { data: existing } = await supabase
     .from("deck_cards")
@@ -95,19 +221,57 @@ export async function addCard(deckId: string, oracleId: string) {
     .maybeSingle();
 
   if (existing) {
-    const { error } = await supabase
+    await supabase
       .from("deck_cards")
       .update({ quantity: existing.quantity + 1 })
       .eq("id", existing.id);
-    if (error) console.error("[addCard] update error", error.message);
   } else {
-    const { error } = await supabase.from("deck_cards").insert({
+    await supabase.from("deck_cards").insert({
       deck_id: deckId,
       scryfall_id: scryfallId,
       quantity: 1,
       board: "main",
     });
-    if (error) console.error("[addCard] insert error", error.message);
+  }
+  revalidatePath(`/decks/${deckId}`);
+  return { ok: true };
+}
+
+/** Move a card between boards, merging quantities if the target already has it. */
+export async function moveCard(
+  deckId: string,
+  scryfallId: string,
+  fromBoard: Board,
+  toBoard: Board
+) {
+  if (fromBoard === toBoard) return;
+  const { supabase } = await requireUser();
+
+  const { data: src } = await supabase
+    .from("deck_cards")
+    .select("id, quantity")
+    .eq("deck_id", deckId)
+    .eq("scryfall_id", scryfallId)
+    .eq("board", fromBoard)
+    .maybeSingle();
+  if (!src) return;
+
+  const { data: target } = await supabase
+    .from("deck_cards")
+    .select("id, quantity")
+    .eq("deck_id", deckId)
+    .eq("scryfall_id", scryfallId)
+    .eq("board", toBoard)
+    .maybeSingle();
+
+  if (target) {
+    await supabase
+      .from("deck_cards")
+      .update({ quantity: target.quantity + src.quantity })
+      .eq("id", target.id);
+    await supabase.from("deck_cards").delete().eq("id", src.id);
+  } else {
+    await supabase.from("deck_cards").update({ board: toBoard }).eq("id", src.id);
   }
   revalidatePath(`/decks/${deckId}`);
 }
@@ -149,6 +313,66 @@ export async function removeCard(
     .eq("deck_id", deckId)
     .eq("scryfall_id", scryfallId)
     .eq("board", board);
+  revalidatePath(`/decks/${deckId}`);
+}
+
+/** Creator Lock In: snapshot the deck's current prices with today's date. */
+export async function lockInDeck(deckId: string) {
+  const { supabase, user } = await requireUser();
+  const { data: totalsData } = await supabase.rpc("deck_totals", {
+    p_deck_id: deckId,
+  });
+  const t = (totalsData as DeckTotals[] | null)?.[0];
+  if (!t) return;
+  await supabase.from("lock_ins").insert({
+    deck_id: deckId,
+    user_id: user.id,
+    budget_price: t.budget_price,
+    bling_price: t.bling_price,
+    currency: "USD",
+    kind: "creator",
+  });
+  revalidatePath(`/decks/${deckId}`);
+}
+
+/** Visitor Lock In: a logged-in non-owner stamps the deck to their profile. */
+export async function visitorLockIn(deckId: string) {
+  const { supabase, user } = await requireUser();
+  const { data: totalsData } = await supabase.rpc("deck_totals", {
+    p_deck_id: deckId,
+  });
+  const t = (totalsData as DeckTotals[] | null)?.[0];
+  if (!t) return;
+
+  const { data: existing } = await supabase
+    .from("lock_ins")
+    .select("id")
+    .eq("deck_id", deckId)
+    .eq("user_id", user.id)
+    .eq("kind", "visitor")
+    .maybeSingle();
+  if (existing) return; // already locked in
+
+  await supabase.from("lock_ins").insert({
+    deck_id: deckId,
+    user_id: user.id,
+    budget_price: t.budget_price,
+    bling_price: t.bling_price,
+    currency: "USD",
+    kind: "visitor",
+  });
+  revalidatePath(`/decks/${deckId}`);
+}
+
+/** Remove the current user's visitor Lock In stamp from a deck. */
+export async function removeVisitorLockIn(deckId: string) {
+  const { supabase, user } = await requireUser();
+  await supabase
+    .from("lock_ins")
+    .delete()
+    .eq("deck_id", deckId)
+    .eq("user_id", user.id)
+    .eq("kind", "visitor");
   revalidatePath(`/decks/${deckId}`);
 }
 

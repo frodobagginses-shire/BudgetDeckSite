@@ -3,12 +3,21 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  moveCard,
   removeCard,
   setCountsTowardBudget,
   setQuantity,
 } from "@/app/decks/actions";
 import { formatUsd } from "@/lib/format";
-import type { PricedCard } from "@/lib/types";
+import type { Board, PricedCard } from "@/lib/types";
+import { BuyCardLink } from "@/components/decks/buy-card-link";
+
+const BOARDS: { value: Board; label: string }[] = [
+  { value: "main", label: "Main" },
+  { value: "side", label: "Sideboard" },
+  { value: "considering", label: "Considering" },
+  { value: "maybe", label: "Maybe" },
+];
 
 export function CardRow({
   deckId,
@@ -45,6 +54,12 @@ export function CardRow({
         card.board,
         !card.counts_toward_budget
       );
+      router.refresh();
+    });
+
+  const move = (to: Board) =>
+    startTransition(async () => {
+      await moveCard(deckId, card.scryfall_id, card.board, to);
       router.refresh();
     });
 
@@ -88,9 +103,24 @@ export function CardRow({
         budget
       </label>
 
+      <select
+        value={card.board}
+        onChange={(e) => move(e.target.value as Board)}
+        className="border-border bg-background rounded border px-1 py-0.5 text-xs"
+        aria-label="Board"
+      >
+        {BOARDS.map((b) => (
+          <option key={b.value} value={b.value}>
+            {b.label}
+          </option>
+        ))}
+      </select>
+
       <span className="text-muted-foreground w-16 text-right tabular-nums">
         {formatUsd(card.line_cheapest)}
       </span>
+
+      <BuyCardLink name={card.name} />
 
       <button
         type="button"
