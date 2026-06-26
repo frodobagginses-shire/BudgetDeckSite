@@ -17,6 +17,8 @@ sure the public env vars are present. None of this requires code changes.
    ```
 5. Copy the **Client ID** and **Client secret**.
 
+800714161480-0as950ac5o7hruutfo39ahicmr8pgqgh.apps.googleusercontent.com
+
 ## 2. Enable Google in Supabase
 
 1. Supabase dashboard → **Authentication → Providers → Google** → enable.

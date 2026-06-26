@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 const FORMATS = [
@@ -28,10 +29,14 @@ export default function Home() {
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <Button size="lg">Start a deck</Button>
-          <Button size="lg" variant="outline">
-            Explore budget decks
-          </Button>
+          <Link href="/decks/new">
+            <Button size="lg">Start a deck</Button>
+          </Link>
+          <Link href="/decks">
+            <Button size="lg" variant="outline">
+              Your budget decks
+            </Button>
+          </Link>
         </div>
       </section>
 
