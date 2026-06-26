@@ -131,7 +131,7 @@ export default async function BrowsePage({
               <li key={d.id}>
                 <Link
                   href={`/decks/${d.id}`}
-                  className="border-border bg-card hover:bg-muted block rounded-xl border p-4"
+                  className="border-border bg-card block rounded-xl border p-4 shadow-sm transition-shadow hover:shadow-md"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate font-semibold">{d.name}</span>

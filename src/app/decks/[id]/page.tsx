@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { deleteDeck, updateDeckMeta, updateDeckPrimer } from "@/app/decks/actions";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { AddCardSearch } from "@/components/decks/add-card-search";
+import { BulkImport } from "@/components/decks/bulk-import";
 import { CardRow } from "@/components/decks/card-row";
 import { DeckReadOnly } from "@/components/decks/deck-read-only";
 import { ExportMenu } from "@/components/decks/export-menu";
@@ -342,6 +343,15 @@ export default async function DeckEditorPage({
           }))}
         />
       </div>
+
+      <details className="border-border bg-card rounded-md border px-3 py-2 text-sm shadow-sm">
+        <summary className="text-muted-foreground hover:text-foreground cursor-pointer">
+          Paste a list to bulk-import
+        </summary>
+        <div className="pt-3">
+          <BulkImport deckId={deck.id} />
+        </div>
+      </details>
 
       {/* Card list */}
       {cards.length === 0 ? (

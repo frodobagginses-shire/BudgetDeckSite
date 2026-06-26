@@ -9,7 +9,7 @@ const FORMATS = [
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-12 px-6 py-20">
+    <main className="from-brand-50 to-background flex flex-1 flex-col items-center justify-center gap-12 bg-gradient-to-b px-6 py-20">
       <section className="flex max-w-2xl flex-col items-center gap-6 text-center">
         <span className="border-brand-100 bg-brand-50 text-brand-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium">
           <span className="bg-brand-500 size-2 rounded-full" />

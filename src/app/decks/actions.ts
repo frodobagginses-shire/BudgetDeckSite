@@ -276,6 +276,98 @@ export async function moveCard(
   revalidatePath(`/decks/${deckId}`);
 }
 
+/**
+ * Bulk import a pasted decklist ("1 Force of Will\n13 Island"). Resolves each
+ * name to its cheapest printing, merges quantities into the main board, flags
+ * basic lands as not-counting-toward-budget, and reports unmatched names.
+ */
+export async function importDeckList(
+  deckId: string,
+  text: string
+): Promise<{ imported: number; unmatched: string[] }> {
+  const { supabase } = await requireUser();
+
+  const parsed: { qty: number; name: string }[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("//") || line.startsWith("#")) continue;
+    const m = line.match(/^(\d+)\s*x?\s+(.+)$/i);
+    if (!m) continue;
+    const name = m[2]
+      .replace(/\s*\([A-Za-z0-9]{2,6}\)\s*[\w-]*\s*$/, "") // strip "(SET) 123"
+      .replace(/\s*\*[FE]\*\s*$/, "") // strip foil/etched markers
+      .trim();
+    if (name) parsed.push({ qty: parseInt(m[1], 10), name });
+  }
+  if (parsed.length === 0) return { imported: 0, unmatched: [] };
+
+  const uniqueNames = Array.from(new Set(parsed.map((p) => p.name)));
+  const { data: matched } = await supabase
+    .from("cards")
+    .select("scryfall_id, name, oracle_id, type_line")
+    .in("name", uniqueNames);
+  const byName = new Map<
+    string,
+    { scryfall_id: string; oracle_id: string; type_line: string | null }
+  >();
+  for (const c of matched ?? []) {
+    if (!byName.has(c.name))
+      byName.set(c.name, {
+        scryfall_id: c.scryfall_id,
+        oracle_id: c.oracle_id,
+        type_line: c.type_line,
+      });
+  }
+
+  const oracleIds = Array.from(
+    new Set([...byName.values()].map((v) => v.oracle_id))
+  );
+  const { data: cheap } = await supabase
+    .from("card_cheapest")
+    .select("oracle_id, cheapest_scryfall_id")
+    .in("oracle_id", oracleIds);
+  const cheapest = new Map<string, string>();
+  for (const c of cheap ?? []) cheapest.set(c.oracle_id, c.cheapest_scryfall_id);
+
+  const { data: existingRows } = await supabase
+    .from("deck_cards")
+    .select("scryfall_id, quantity")
+    .eq("deck_id", deckId)
+    .eq("board", "main");
+  const existing = new Map<string, number>();
+  for (const r of existingRows ?? []) existing.set(r.scryfall_id, r.quantity);
+
+  const unmatched: string[] = [];
+  const agg = new Map<string, { qty: number; counts: boolean }>();
+  for (const p of parsed) {
+    const card = byName.get(p.name);
+    if (!card) {
+      unmatched.push(p.name);
+      continue;
+    }
+    const scryfallId = cheapest.get(card.oracle_id) ?? card.scryfall_id;
+    const counts = !(card.type_line ?? "").includes("Basic");
+    const cur = agg.get(scryfallId);
+    if (cur) cur.qty += p.qty;
+    else agg.set(scryfallId, { qty: p.qty, counts });
+  }
+
+  const rows = [...agg.entries()].map(([scryfall_id, v]) => ({
+    deck_id: deckId,
+    scryfall_id,
+    board: "main",
+    quantity: (existing.get(scryfall_id) ?? 0) + v.qty,
+    counts_toward_budget: v.counts,
+  }));
+  if (rows.length) {
+    await supabase
+      .from("deck_cards")
+      .upsert(rows, { onConflict: "deck_id,scryfall_id,board" });
+  }
+  revalidatePath(`/decks/${deckId}`);
+  return { imported: rows.length, unmatched: Array.from(new Set(unmatched)) };
+}
+
 export async function setQuantity(
   deckId: string,
   scryfallId: string,
