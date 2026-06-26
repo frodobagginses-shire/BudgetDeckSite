@@ -195,8 +195,8 @@ export function DeckReadOnly({
                     <span className="text-muted-foreground w-6 text-right tabular-nums">
                       {c.quantity}
                     </span>
-                    <span className="flex-1 truncate">
-                      <CardHover name={c.name} className="hover:underline" />
+                    <span className="min-w-0 flex-1">
+                      <CardHover name={c.name} className="text-left hover:underline" />
                     </span>
                     <span className="text-muted-foreground w-16 text-right tabular-nums">
                       {formatUsd(c.line_cheapest)}

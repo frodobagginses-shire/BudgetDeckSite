@@ -101,8 +101,8 @@ export function CardRow({
         </button>
       </div>
 
-      <span className="flex-1 truncate">
-        <CardHover name={card.name} className="hover:underline" />
+      <span className="min-w-0 flex-1">
+        <CardHover name={card.name} className="text-left hover:underline" />
       </span>
 
       <label
