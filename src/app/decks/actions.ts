@@ -38,6 +38,37 @@ export async function createDeck(formData: FormData) {
   if (error || !data) {
     throw new Error(error?.message ?? "Could not create deck");
   }
+
+  const commanderOracle = String(
+    formData.get("commander_oracle_id") || ""
+  ).trim();
+  if (commanderOracle && game_format === "commander") {
+    const { data: cheap } = await supabase
+      .from("card_cheapest")
+      .select("cheapest_scryfall_id")
+      .eq("oracle_id", commanderOracle)
+      .maybeSingle();
+    let scryfallId = cheap?.cheapest_scryfall_id as string | undefined;
+    if (!scryfallId) {
+      const { data: anyc } = await supabase
+        .from("cards")
+        .select("scryfall_id")
+        .eq("oracle_id", commanderOracle)
+        .limit(1)
+        .maybeSingle();
+      scryfallId = anyc?.scryfall_id as string | undefined;
+    }
+    if (scryfallId) {
+      await supabase.from("deck_cards").insert({
+        deck_id: data.id,
+        scryfall_id: scryfallId,
+        quantity: 1,
+        board: "main",
+        is_commander: true,
+      });
+    }
+  }
+
   redirect(`/decks/${data.id}`);
 }
 
@@ -544,6 +575,24 @@ export async function toggleCommander(deckId: string, scryfallId: string) {
       .eq("deck_id", deckId)
       .eq("scryfall_id", scryfallId);
   }
+  revalidatePath(`/decks/${deckId}`);
+}
+
+/** Swap the chosen printing of a card (affects Bling price + image). */
+export async function setPrinting(
+  deckId: string,
+  fromScryfallId: string,
+  toScryfallId: string,
+  board: Board
+) {
+  if (fromScryfallId === toScryfallId) return;
+  const { supabase } = await requireUser();
+  await supabase
+    .from("deck_cards")
+    .update({ scryfall_id: toScryfallId })
+    .eq("deck_id", deckId)
+    .eq("scryfall_id", fromScryfallId)
+    .eq("board", board);
   revalidatePath(`/decks/${deckId}`);
 }
 

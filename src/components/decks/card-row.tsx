@@ -2,24 +2,12 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  moveCard,
-  removeCard,
-  setCountsTowardBudget,
-  setQuantity,
-  toggleCommander,
-} from "@/app/decks/actions";
+import { removeCard, setQuantity } from "@/app/decks/actions";
 import { formatUsd } from "@/lib/format";
-import type { Board, PricedCard } from "@/lib/types";
+import type { PricedCard } from "@/lib/types";
 import { BuyCardLink } from "@/components/decks/buy-card-link";
 import { CardHover } from "@/components/cards/card-hover";
-
-const BOARDS: { value: Board; label: string }[] = [
-  { value: "main", label: "Main" },
-  { value: "side", label: "Sideboard" },
-  { value: "considering", label: "Considering" },
-  { value: "maybe", label: "Maybe" },
-];
+import { CardRowMenu } from "@/components/decks/card-row-menu";
 
 export function CardRow({
   deckId,
@@ -35,12 +23,6 @@ export function CardRow({
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  const commander = () =>
-    startTransition(async () => {
-      await toggleCommander(deckId, card.scryfall_id);
-      router.refresh();
-    });
-
   const changeQty = (delta: number) =>
     startTransition(async () => {
       await setQuantity(
@@ -55,23 +37,6 @@ export function CardRow({
   const remove = () =>
     startTransition(async () => {
       await removeCard(deckId, card.scryfall_id, card.board);
-      router.refresh();
-    });
-
-  const toggleCounts = () =>
-    startTransition(async () => {
-      await setCountsTowardBudget(
-        deckId,
-        card.scryfall_id,
-        card.board,
-        !card.counts_toward_budget
-      );
-      router.refresh();
-    });
-
-  const move = (to: Board) =>
-    startTransition(async () => {
-      await moveCard(deckId, card.scryfall_id, card.board, to);
       router.refresh();
     });
 
@@ -105,45 +70,18 @@ export function CardRow({
         <CardHover name={card.name} className="text-left hover:underline" />
       </span>
 
-      <label
-        className="text-muted-foreground flex items-center gap-1 text-xs"
-        title="Counts toward the budget price"
-      >
-        <input
-          type="checkbox"
-          checked={card.counts_toward_budget}
-          onChange={toggleCounts}
-        />
-        budget
-      </label>
-
-      <select
-        value={card.board}
-        onChange={(e) => move(e.target.value as Board)}
-        className="border-border bg-background rounded border px-1 py-0.5 text-xs"
-        aria-label="Board"
-      >
-        {BOARDS.map((b) => (
-          <option key={b.value} value={b.value}>
-            {b.label}
-          </option>
-        ))}
-      </select>
+      {!card.counts_toward_budget && (
+        <span
+          className="text-muted-foreground text-[10px] uppercase"
+          title="Not counted toward budget"
+        >
+          free
+        </span>
+      )}
 
       <span className="text-muted-foreground w-16 text-right tabular-nums">
         {formatUsd(card.line_cheapest)}
       </span>
-
-      {commanderEligible && (
-        <button
-          type="button"
-          onClick={commander}
-          title={isCommander ? "Unset commander" : "Set as commander"}
-          className={isCommander ? "" : "opacity-40 hover:opacity-100"}
-        >
-          👑
-        </button>
-      )}
 
       <BuyCardLink name={card.name} />
 
@@ -155,6 +93,13 @@ export function CardRow({
       >
         ✕
       </button>
+
+      <CardRowMenu
+        deckId={deckId}
+        card={card}
+        commanderEligible={commanderEligible}
+        isCommander={isCommander}
+      />
     </div>
   );
 }
