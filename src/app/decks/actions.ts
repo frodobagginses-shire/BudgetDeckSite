@@ -88,6 +88,16 @@ export async function toggleLike(deckId: string) {
   revalidatePath(`/decks/${deckId}`);
 }
 
+/** Set (or clear, with "") the deck's banner card. */
+export async function setBanner(deckId: string, scryfallId: string) {
+  const { supabase } = await requireUser();
+  await supabase
+    .from("decks")
+    .update({ banner_scryfall_id: scryfallId || null })
+    .eq("id", deckId);
+  revalidatePath(`/decks/${deckId}`);
+}
+
 /** Update a deck's primer (Markdown description). */
 export async function updateDeckPrimer(deckId: string, formData: FormData) {
   const { supabase } = await requireUser();
@@ -176,20 +186,25 @@ export async function addCard(
     .eq("oracle_id", oracleId)
     .maybeSingle();
   let scryfallId = cheap?.cheapest_scryfall_id as string | undefined;
-  let card: { name: string; legalities: Record<string, string> } | null = null;
+  type CardInfo = {
+    name: string;
+    legalities: Record<string, string>;
+    color_identity: string[];
+  };
+  let card: CardInfo | null = null;
 
   if (scryfallId) {
     const { data } = await supabase
       .from("cards")
-      .select("name, legalities")
+      .select("name, legalities, color_identity")
       .eq("scryfall_id", scryfallId)
       .maybeSingle();
-    if (data) card = data as { name: string; legalities: Record<string, string> };
+    if (data) card = data as CardInfo;
   }
   if (!scryfallId) {
     const { data } = await supabase
       .from("cards")
-      .select("scryfall_id, name, legalities")
+      .select("scryfall_id, name, legalities, color_identity")
       .eq("oracle_id", oracleId)
       .limit(1)
       .maybeSingle();
@@ -198,6 +213,7 @@ export async function addCard(
       card = {
         name: data.name as string,
         legalities: data.legalities as Record<string, string>,
+        color_identity: (data.color_identity as string[]) ?? [],
       };
   }
   if (!scryfallId) return { ok: false, message: "Card not found." };
@@ -205,10 +221,39 @@ export async function addCard(
   if (format !== "casual" && card?.legalities) {
     const status = card.legalities[format];
     if (status && status !== "legal" && status !== "restricted") {
-      return {
-        ok: false,
-        message: `${card.name} isn't legal in ${format}.`,
-      };
+      return { ok: false, message: `${card.name} isn't legal in ${format}.` };
+    }
+  }
+
+  if (format === "commander") {
+    const { data: cmd } = await supabase
+      .from("deck_cards")
+      .select("scryfall_id")
+      .eq("deck_id", deckId)
+      .eq("is_commander", true);
+    if (cmd && cmd.length) {
+      const { data: cmdCards } = await supabase
+        .from("cards")
+        .select("color_identity")
+        .in(
+          "scryfall_id",
+          cmd.map((r) => r.scryfall_id)
+        );
+      const identity = new Set<string>();
+      for (const c of cmdCards ?? [])
+        for (const col of (c.color_identity as string[]) ?? [])
+          identity.add(col);
+      const outside = (card?.color_identity ?? []).filter(
+        (col) => !identity.has(col)
+      );
+      if (outside.length) {
+        return {
+          ok: false,
+          message: `${card?.name} is outside your commander's color identity (${
+            [...identity].join("") || "colorless"
+          }).`,
+        };
+      }
     }
   }
 
@@ -465,6 +510,40 @@ export async function removeVisitorLockIn(deckId: string) {
     .eq("deck_id", deckId)
     .eq("user_id", user.id)
     .eq("kind", "visitor");
+  revalidatePath(`/decks/${deckId}`);
+}
+
+/** Designate (or clear) a card as the deck's commander. */
+export async function toggleCommander(deckId: string, scryfallId: string) {
+  const { supabase } = await requireUser();
+  const { data: existing } = await supabase
+    .from("deck_cards")
+    .select("is_commander")
+    .eq("deck_id", deckId)
+    .eq("scryfall_id", scryfallId)
+    .eq("board", "main")
+    .maybeSingle();
+
+  if (existing?.is_commander) {
+    await supabase
+      .from("deck_cards")
+      .update({ is_commander: false })
+      .eq("deck_id", deckId)
+      .eq("scryfall_id", scryfallId)
+      .eq("board", "main");
+  } else {
+    // For now a single commander: clear others, then set this one (on main).
+    await supabase
+      .from("deck_cards")
+      .update({ is_commander: false })
+      .eq("deck_id", deckId)
+      .eq("is_commander", true);
+    await supabase
+      .from("deck_cards")
+      .update({ is_commander: true, board: "main" })
+      .eq("deck_id", deckId)
+      .eq("scryfall_id", scryfallId);
+  }
   revalidatePath(`/decks/${deckId}`);
 }
 

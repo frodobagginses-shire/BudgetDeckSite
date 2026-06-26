@@ -24,6 +24,7 @@ export interface Deck {
   description_md: string | null;
   parent_deck_id: string | null;
   show_lineage: boolean;
+  banner_scryfall_id: string | null;
   created_at: string;
   updated_at: string;
 }

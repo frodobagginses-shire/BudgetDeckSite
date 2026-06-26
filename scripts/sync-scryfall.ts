@@ -60,13 +60,16 @@ interface ScryfallCard {
   color_identity?: string[];
   rarity?: string;
   layout?: string;
-  image_uris?: { normal?: string; small?: string };
-  card_faces?: { image_uris?: { normal?: string; small?: string } }[];
+  image_uris?: { normal?: string; small?: string; art_crop?: string };
+  card_faces?: {
+    image_uris?: { normal?: string; small?: string; art_crop?: string };
+  }[];
   prices?: { usd?: string | null; usd_foil?: string | null };
   games?: string[];
   legalities?: Record<string, string>;
   released_at?: string;
   digital?: boolean;
+  edhrec_rank?: number;
 }
 
 interface CardRow {
@@ -82,11 +85,13 @@ interface CardRow {
   layout: string | null;
   image_normal: string | null;
   image_small: string | null;
+  image_art_crop: string | null;
   price_usd: number | null;
   price_usd_foil: number | null;
   games: string[];
   legalities: Record<string, string>;
   released_at: string | null;
+  edhrec_rank: number | null;
 }
 
 const num = (v?: string | null): number | null =>
@@ -112,11 +117,13 @@ function toRow(c: ScryfallCard): CardRow | null {
     layout: c.layout ?? null,
     image_normal: img.normal ?? null,
     image_small: img.small ?? null,
+    image_art_crop: img.art_crop ?? null,
     price_usd: num(c.prices?.usd),
     price_usd_foil: num(c.prices?.usd_foil),
     games: c.games ?? [],
     legalities: c.legalities ?? {},
     released_at: c.released_at ?? null,
+    edhrec_rank: c.edhrec_rank ?? null,
   };
 }
 

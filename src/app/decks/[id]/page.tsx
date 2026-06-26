@@ -5,6 +5,8 @@ import { deleteDeck, updateDeckMeta, updateDeckPrimer } from "@/app/decks/action
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { AddCardSearch } from "@/components/decks/add-card-search";
 import { BulkImport } from "@/components/decks/bulk-import";
+import { ColorPips } from "@/components/cards/color-pips";
+import { DeckBanner } from "@/components/decks/deck-banner";
 import { CardRow } from "@/components/decks/card-row";
 import { DeckReadOnly } from "@/components/decks/deck-read-only";
 import { ExportMenu } from "@/components/decks/export-menu";
@@ -126,6 +128,59 @@ export default async function DeckEditorPage({
     { key: "maybe", label: "Maybe" },
   ];
 
+  const { data: cmdRows } = await supabase
+    .from("deck_cards")
+    .select("scryfall_id")
+    .eq("deck_id", id)
+    .eq("is_commander", true);
+  const commanderIds = new Set(
+    (cmdRows ?? []).map((r) => r.scryfall_id as string)
+  );
+  let deckIdentity: string[] = [];
+  if (commanderIds.size) {
+    const { data: ci } = await supabase
+      .from("cards")
+      .select("color_identity")
+      .in("scryfall_id", [...commanderIds]);
+    const s = new Set<string>();
+    for (const c of ci ?? [])
+      for (const col of (c.color_identity as string[]) ?? []) s.add(col);
+    deckIdentity = [...s];
+  }
+
+  // Banner: manual override → commander → most popular (lowest edhrec_rank).
+  let bannerId: string | null = (deck.banner_scryfall_id as string | null) ?? null;
+  if (!bannerId && commanderIds.size) bannerId = [...commanderIds][0];
+  if (!bannerId && cards.length) {
+    const { data: pop } = await supabase
+      .from("cards")
+      .select("scryfall_id")
+      .in(
+        "scryfall_id",
+        cards.map((c) => c.scryfall_id)
+      )
+      .order("edhrec_rank", { ascending: true, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    bannerId = (pop?.scryfall_id as string) ?? cards[0]?.scryfall_id ?? null;
+  }
+  let bannerImageUrl: string | null = null;
+  if (bannerId) {
+    const { data: bc } = await supabase
+      .from("cards")
+      .select("image_art_crop, image_normal")
+      .eq("scryfall_id", bannerId)
+      .maybeSingle();
+    bannerImageUrl =
+      (bc?.image_art_crop as string | null) ??
+      (bc?.image_normal as string | null) ??
+      null;
+  }
+  const bannerChoices = cards.map((c) => ({
+    scryfall_id: c.scryfall_id,
+    name: c.name,
+  }));
+
   const { data: totalsData } = await supabase.rpc("deck_totals", {
     p_deck_id: id,
   });
@@ -181,6 +236,8 @@ export default async function DeckEditorPage({
         forkCount={forkCount}
         likeCount={likeCount}
         liked={liked}
+        deckIdentity={deckIdentity}
+        bannerImageUrl={bannerImageUrl}
       />
     );
   }
@@ -189,8 +246,12 @@ export default async function DeckEditorPage({
     deck.threshold_amount != null && totals.budget_price > deck.threshold_amount;
 
   // Group by type bucket, with a cheapest subtotal per group.
+  const commanderCards = cards.filter((c) => commanderIds.has(c.scryfall_id));
+  const mainNonCommander = cards.filter(
+    (c) => !commanderIds.has(c.scryfall_id)
+  );
   const buckets = new Map<string, PricedCard[]>();
-  for (const c of cards) {
+  for (const c of mainNonCommander) {
     const k = getTypeBucket(c.type_line);
     const arr = buckets.get(k);
     if (arr) arr.push(c);
@@ -206,6 +267,14 @@ export default async function DeckEditorPage({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10">
+      <DeckBanner
+        deckId={deck.id}
+        imageUrl={bannerImageUrl}
+        canEdit
+        choices={bannerChoices}
+        currentBannerId={bannerId}
+      />
+
       {/* Settings */}
       <form action={updateBound} className="flex flex-wrap items-end gap-3">
         <label className="flex flex-1 flex-col gap-1 text-sm">
@@ -262,6 +331,12 @@ export default async function DeckEditorPage({
       </form>
 
       <DeckLineage parent={parent} forkCount={forkCount} />
+
+      {deck.game_format === "commander" && (
+        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+          Color identity: <ColorPips identity={deckIdentity} />
+        </div>
+      )}
 
       {/* Price summary */}
       <div className="border-border bg-card flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border p-4">
@@ -353,6 +428,25 @@ export default async function DeckEditorPage({
         </div>
       </details>
 
+      {commanderCards.length > 0 && (
+        <section>
+          <div className="text-muted-foreground mb-1 text-xs font-semibold uppercase tracking-wide">
+            Commander
+          </div>
+          <div className="divide-border divide-y">
+            {commanderCards.map((c) => (
+              <CardRow
+                key={`cmd-${c.scryfall_id}`}
+                deckId={deck.id}
+                card={c}
+                commanderEligible
+                isCommander
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Card list */}
       {cards.length === 0 ? (
         <p className="text-muted-foreground text-sm">
@@ -376,7 +470,12 @@ export default async function DeckEditorPage({
                 </div>
                 <div className="divide-border divide-y">
                   {list.map((c) => (
-                    <CardRow key={c.scryfall_id} deckId={deck.id} card={c} />
+                    <CardRow
+                      key={c.scryfall_id}
+                      deckId={deck.id}
+                      card={c}
+                      commanderEligible={deck.game_format === "commander"}
+                    />
                   ))}
                 </div>
               </section>
@@ -400,6 +499,7 @@ export default async function DeckEditorPage({
                   key={`${key}-${c.scryfall_id}`}
                   deckId={deck.id}
                   card={c}
+                  commanderEligible={deck.game_format === "commander"}
                 />
               ))}
             </div>

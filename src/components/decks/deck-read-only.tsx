@@ -13,6 +13,9 @@ import {
 } from "@/components/decks/deck-lineage";
 import { ArticleBody } from "@/components/articles/article-body";
 import { LikeButton } from "@/components/decks/like-button";
+import { CardHover } from "@/components/cards/card-hover";
+import { ColorPips } from "@/components/cards/color-pips";
+import { DeckBanner } from "@/components/decks/deck-banner";
 
 export function DeckReadOnly({
   deck,
@@ -26,6 +29,8 @@ export function DeckReadOnly({
   forkCount,
   likeCount,
   liked,
+  deckIdentity,
+  bannerImageUrl,
 }: {
   deck: Deck;
   ownerHandle: string | null;
@@ -38,6 +43,8 @@ export function DeckReadOnly({
   forkCount: number;
   likeCount: number;
   liked: boolean;
+  deckIdentity: string[];
+  bannerImageUrl: string | null;
 }) {
   const overBudget =
     deck.threshold_amount != null && totals.budget_price > deck.threshold_amount;
@@ -65,6 +72,13 @@ export function DeckReadOnly({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10">
+      <DeckBanner
+        deckId={deck.id}
+        imageUrl={bannerImageUrl}
+        canEdit={false}
+        choices={[]}
+        currentBannerId={null}
+      />
       <header className="flex flex-col gap-1">
         {ownerHandle && (
           <Link
@@ -77,6 +91,9 @@ export function DeckReadOnly({
         <h1 className="text-3xl font-bold tracking-tight">{deck.name}</h1>
         <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm capitalize">
           <span>{deck.game_format}</span>
+          {deck.game_format === "commander" && (
+            <ColorPips identity={deckIdentity} />
+          )}
           {deck.threshold_amount != null && (
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -178,7 +195,9 @@ export function DeckReadOnly({
                     <span className="text-muted-foreground w-6 text-right tabular-nums">
                       {c.quantity}
                     </span>
-                    <span className="flex-1 truncate">{c.name}</span>
+                    <span className="flex-1 truncate">
+                      <CardHover name={c.name} className="hover:underline" />
+                    </span>
                     <span className="text-muted-foreground w-16 text-right tabular-nums">
                       {formatUsd(c.line_cheapest)}
                     </span>
