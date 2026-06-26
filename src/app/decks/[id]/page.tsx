@@ -168,13 +168,14 @@ export default async function DeckEditorPage({
   if (bannerId) {
     const { data: bc } = await supabase
       .from("cards")
-      .select("image_art_crop, image_normal")
+      .select("image_normal")
       .eq("scryfall_id", bannerId)
       .maybeSingle();
-    bannerImageUrl =
-      (bc?.image_art_crop as string | null) ??
-      (bc?.image_normal as string | null) ??
-      null;
+    const normal = bc?.image_normal as string | null;
+    // Scryfall's landscape art crop is the same URL with /normal/ → /art_crop/.
+    bannerImageUrl = normal
+      ? normal.replace("/normal/", "/art_crop/")
+      : null;
   }
   const bannerChoices = cards.map((c) => ({
     scryfall_id: c.scryfall_id,

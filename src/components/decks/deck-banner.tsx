@@ -33,7 +33,7 @@ export function DeckBanner({
         <img
           src={imageUrl}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-top"
+          className="absolute inset-0 h-full w-full object-cover object-center"
         />
       ) : (
         <div className="from-brand-400/40 to-brand-700/30 absolute inset-0 bg-gradient-to-br" />
