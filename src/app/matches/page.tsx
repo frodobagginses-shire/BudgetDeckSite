@@ -183,6 +183,37 @@ export default async function MatchesPage() {
     members: membersByGroup.get(g.id) ?? [],
   }));
 
+  // For open matches I host, fetch each player's eligible locked-in decks so I
+  // can pre-assign them (SECURITY DEFINER RPC, gated to the creator).
+  const assignableByMatch: Record<
+    string,
+    Record<string, { id: string; name: string; locked_price: number }[]>
+  > = {};
+  for (const m of matches) {
+    if (m.creator_id === user.id && m.status === "open") {
+      const { data: rows } = await supabase.rpc("match_assignable_decks", {
+        p_match: m.id,
+      });
+      const byUser: Record<
+        string,
+        { id: string; name: string; locked_price: number }[]
+      > = {};
+      for (const r of (rows ?? []) as {
+        user_id: string;
+        deck_id: string;
+        name: string;
+        locked_price: number;
+      }[]) {
+        (byUser[r.user_id] ??= []).push({
+          id: r.deck_id,
+          name: r.name,
+          locked_price: Number(r.locked_price),
+        });
+      }
+      assignableByMatch[m.id] = byUser;
+    }
+  }
+
   const invitations = matches.filter((m) => m.status === "open");
   const active = matches.filter((m) => m.status === "active");
   const completed = matches.filter((m) => m.status === "completed");
@@ -204,7 +235,13 @@ export default async function MatchesPage() {
         <p className="text-muted-foreground text-sm">{empty}</p>
       ) : (
         list.map((m) => (
-          <MatchCard key={m.id} match={m} me={user.id} myDecks={lockedDecks} />
+          <MatchCard
+            key={m.id}
+            match={m}
+            me={user.id}
+            myDecks={lockedDecks}
+            assignable={assignableByMatch[m.id] ?? {}}
+          />
         ))
       )}
     </section>

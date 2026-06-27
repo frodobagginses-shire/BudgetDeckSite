@@ -203,10 +203,12 @@ export function MatchCard({
   match,
   me,
   myDecks,
+  assignable = {},
 }: {
   match: Match;
   me: string;
   myDecks: Deck[];
+  assignable?: Record<string, Deck[]>;
 }) {
   const { pending, msg, run } = useAct();
   const mine = match.players.find((p) => p.user_id === me);
@@ -286,6 +288,42 @@ export function MatchCard({
             ))}
           </select>
           <span className="text-muted-foreground text-xs">waiting for players…</span>
+        </div>
+      )}
+
+      {/* OPEN + host: pre-assign decks to other players */}
+      {match.status === "open" && match.creator_id === me && (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <span className="text-muted-foreground text-xs">
+            Assign decks (optional — players can change theirs until they accept)
+          </span>
+          {match.players
+            .filter((p) => p.user_id !== me)
+            .map((p) => (
+              <div
+                key={p.user_id}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span>{p.name}</span>
+                <select
+                  defaultValue={p.deck_id ?? ""}
+                  disabled={pending}
+                  onChange={(e) =>
+                    run(() =>
+                      setMatchDeck(match.id, p.user_id, e.target.value || null)
+                    )
+                  }
+                  className={field}
+                >
+                  <option value="">Let them pick</option>
+                  {(assignable[p.user_id] ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
         </div>
       )}
 
