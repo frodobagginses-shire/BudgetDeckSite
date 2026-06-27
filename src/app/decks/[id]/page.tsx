@@ -407,6 +407,10 @@ export default async function DeckEditorPage({
         </div>
       </div>
 
+      {isAdmin && (
+        <AdminLockIn deckId={deck.id} defaultBudget={totals.budget_price} />
+      )}
+
       {/* Tabs */}
       <div className="border-border flex gap-1 border-b">
         <Link
@@ -530,10 +534,6 @@ export default async function DeckEditorPage({
           </button>
         </form>
       </section>
-      )}
-
-      {isAdmin && (
-        <AdminLockIn deckId={deck.id} defaultBudget={totals.budget_price} />
       )}
 
       {/* Danger zone */}
