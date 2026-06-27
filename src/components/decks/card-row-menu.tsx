@@ -4,8 +4,10 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   moveCard,
+  removeCard,
   setCountsTowardBudget,
   setPrinting,
+  setQuantity,
   toggleCommander,
 } from "@/app/decks/actions";
 import { formatUsd } from "@/lib/format";
@@ -39,6 +41,8 @@ export function CardRowMenu({
   const [open, setOpen] = useState(false);
   const [printingsOpen, setPrintingsOpen] = useState(false);
   const [printings, setPrintings] = useState<Printing[] | null>(null);
+  const [qtyOpen, setQtyOpen] = useState(false);
+  const [qtyVal, setQtyVal] = useState(String(card.quantity));
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
@@ -92,6 +96,60 @@ export function CardRowMenu({
       </button>
       {open && (
         <div className="border-border bg-card absolute right-0 z-50 mt-1 w-56 rounded-md border py-1 text-sm shadow-lg">
+          <button
+            type="button"
+            disabled={pending}
+            className={item}
+            onClick={() =>
+              act(() =>
+                setQuantity(
+                  deckId,
+                  card.scryfall_id,
+                  card.board,
+                  card.quantity + 1
+                )
+              )
+            }
+          >
+            Add one
+          </button>
+          <button
+            type="button"
+            className={item}
+            onClick={() => setQtyOpen((v) => !v)}
+          >
+            Set quantity…
+          </button>
+          {qtyOpen && (
+            <div className="flex items-center gap-1 px-3 py-1.5">
+              <input
+                value={qtyVal}
+                onChange={(e) =>
+                  setQtyVal(e.target.value.replace(/[^0-9]/g, ""))
+                }
+                className="border-border w-14 rounded border px-1 py-0.5 text-sm"
+                inputMode="numeric"
+                aria-label="Set quantity"
+              />
+              <button
+                type="button"
+                disabled={pending}
+                className="border-border hover:bg-muted rounded border px-2 py-0.5 text-xs"
+                onClick={() => {
+                  const n = parseInt(qtyVal || "1", 10);
+                  if (n >= 1)
+                    act(() =>
+                      setQuantity(deckId, card.scryfall_id, card.board, n)
+                    );
+                }}
+              >
+                Set
+              </button>
+            </div>
+          )}
+
+          <div className="border-border my-1 border-t" />
+
           <button
             type="button"
             disabled={pending}
@@ -187,6 +245,18 @@ export function CardRowMenu({
               {b.label}
             </button>
           ))}
+
+          <div className="border-border my-1 border-t" />
+          <button
+            type="button"
+            disabled={pending}
+            className="hover:bg-destructive/10 text-destructive block w-full px-3 py-1.5 text-left font-medium disabled:opacity-50"
+            onClick={() =>
+              act(() => removeCard(deckId, card.scryfall_id, card.board))
+            }
+          >
+            Remove
+          </button>
         </div>
       )}
     </div>

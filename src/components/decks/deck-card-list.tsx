@@ -106,14 +106,16 @@ export function DeckCardList({
         </button>
       </div>
 
-      <div className="gap-x-8 sm:columns-2">
+      <div className="gap-x-8 xl:columns-2">
         {groups.map((g) => (
           <section key={g.key} className="mb-5 break-inside-avoid">
-            <div className="text-muted-foreground mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
-              <span>
+            <div className="mb-1 flex items-center justify-between text-xs uppercase tracking-wide">
+              <span className="text-foreground font-bold">
                 {g.label} ({g.count})
               </span>
-              <span>{formatUsd(g.subtotal)}</span>
+              <span className="text-muted-foreground font-semibold">
+                {formatUsd(g.subtotal)}
+              </span>
             </div>
             <div className="divide-border divide-y">
               {g.cards.map((c) =>
