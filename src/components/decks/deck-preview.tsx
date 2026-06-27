@@ -76,7 +76,7 @@ export function DeckPreviewPane() {
   }, [name]);
 
   return (
-    <div className="sticky top-6 flex flex-col gap-3">
+    <div className="sticky top-20 flex flex-col gap-3">
       <div className="border-border bg-muted overflow-hidden rounded-xl border">
         {data?.image_normal ? (
           // eslint-disable-next-line @next/next/no-img-element
