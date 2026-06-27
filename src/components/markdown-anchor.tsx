@@ -14,6 +14,22 @@ export function MarkdownAnchor({
   children?: ReactNode;
 }) {
   const url = href ?? "";
+
+  if (url.startsWith("ytembed:")) {
+    const id = url.slice("ytembed:".length);
+    return (
+      <span className="border-border my-4 block aspect-video w-full overflow-hidden rounded-xl border">
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${id}`}
+          title="YouTube video"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          className="h-full w-full border-0"
+        />
+      </span>
+    );
+  }
+
   if (!url.startsWith("card:")) {
     return (
       <a

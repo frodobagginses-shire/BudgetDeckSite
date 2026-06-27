@@ -2,9 +2,21 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 const FORMATS = [
-  { name: "$15 Commander", note: "the playgroup classic" },
-  { name: "$20 Vintage", note: "price cap, not rarity cap" },
-  { name: "$50 Modern", note: "your threshold, your call" },
+  {
+    name: "$15 Commander",
+    note: "the playgroup classic",
+    href: "/articles/15-commander",
+  },
+  {
+    name: "$30 Value Vintage",
+    note: "the Vintage banlist, on a budget",
+    href: "/articles/30-value-vintage",
+  },
+  {
+    name: "$50 Modern",
+    note: "Modern's pool, price-capped",
+    href: "/articles/50-modern",
+  },
 ];
 
 export default function Home() {
@@ -42,13 +54,17 @@ export default function Home() {
 
       <section className="grid w-full max-w-3xl gap-4 sm:grid-cols-3">
         {FORMATS.map((f) => (
-          <div
+          <Link
             key={f.name}
-            className="border-border bg-card rounded-xl border p-5 text-left shadow-sm"
+            href={f.href}
+            className="border-border bg-card hover:border-brand-300 group rounded-xl border p-5 text-left shadow-sm transition hover:shadow-md"
           >
             <div className="text-base font-semibold">{f.name}</div>
             <div className="text-muted-foreground mt-1 text-sm">{f.note}</div>
-          </div>
+            <div className="text-brand-600 mt-3 text-xs font-medium opacity-0 transition group-hover:opacity-100">
+              Read the format guide →
+            </div>
+          </Link>
         ))}
       </section>
 
