@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Board, DeckTotals } from "@/lib/types";
+import { ARCHETYPE_SET, MAX_ARCHETYPES } from "@/lib/archetypes";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -116,6 +117,26 @@ export async function toggleLike(deckId: string) {
       user_id: user.id,
     });
   }
+  revalidatePath(`/decks/${deckId}`);
+}
+
+/** Toggle whether a deck's match W/L record is public. */
+export async function setRecordPublic(deckId: string, isPublic: boolean) {
+  const { supabase } = await requireUser();
+  await supabase
+    .from("decks")
+    .update({ record_public: isPublic })
+    .eq("id", deckId);
+  revalidatePath(`/decks/${deckId}`);
+}
+
+/** Set up to 3 archetype tags on a deck (validated against the known list). */
+export async function setArchetypes(deckId: string, archetypes: string[]) {
+  const { supabase } = await requireUser();
+  const clean = Array.from(new Set(archetypes))
+    .filter((a) => ARCHETYPE_SET.has(a))
+    .slice(0, MAX_ARCHETYPES);
+  await supabase.from("decks").update({ archetypes: clean }).eq("id", deckId);
   revalidatePath(`/decks/${deckId}`);
 }
 

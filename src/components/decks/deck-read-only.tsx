@@ -20,6 +20,9 @@ import {
   DeckPreviewPane,
 } from "@/components/decks/deck-preview";
 import { AdminLockIn } from "@/components/decks/admin-lock-in";
+import { ArchetypeChips } from "@/components/decks/archetype-picker";
+import { DeckRecordCard } from "@/components/decks/deck-record";
+import type { DeckRecord } from "@/lib/types";
 
 export function DeckReadOnly({
   deck,
@@ -36,6 +39,7 @@ export function DeckReadOnly({
   deckIdentity,
   bannerImageUrl,
   isAdmin = false,
+  record = null,
 }: {
   deck: Deck;
   ownerHandle: string | null;
@@ -51,6 +55,7 @@ export function DeckReadOnly({
   deckIdentity: string[];
   bannerImageUrl: string | null;
   isAdmin?: boolean;
+  record?: DeckRecord | null;
 }) {
   const overBudget =
     deck.threshold_amount != null && totals.budget_price > deck.threshold_amount;
@@ -108,6 +113,11 @@ export function DeckReadOnly({
             </span>
           )}
         </div>
+        {deck.archetypes?.length > 0 && (
+          <div className="mt-1">
+            <ArchetypeChips archetypes={deck.archetypes} />
+          </div>
+        )}
         <DeckLineage parent={parent} forkCount={forkCount} />
       </header>
 
@@ -152,6 +162,15 @@ export function DeckReadOnly({
 
       {isAdmin && (
         <AdminLockIn deckId={deck.id} defaultBudget={totals.budget_price} />
+      )}
+
+      {record && (
+        <DeckRecordCard
+          deckId={deck.id}
+          record={record}
+          isOwner={false}
+          recordPublic={deck.record_public}
+        />
       )}
 
       {/* Mana curve */}

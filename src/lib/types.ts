@@ -27,8 +27,18 @@ export interface Deck {
   banner_scryfall_id: string | null;
   banner_pos_x: number;
   banner_pos_y: number;
+  archetypes: string[];
+  record_public: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface DeckRecord {
+  wins: number;
+  losses: number;
+  draws: number;
+  beat: string[];
+  lost_to: string[];
 }
 
 export interface DeckTotals {

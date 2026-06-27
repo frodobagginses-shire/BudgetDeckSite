@@ -7,6 +7,8 @@ const LINKS = [
   { href: "/browse", label: "Browse" },
   { href: "/articles", label: "Articles" },
   { href: "/decks", label: "Your decks" },
+  { href: "/playgroups", label: "Playgroups" },
+  { href: "/matches", label: "Matches" },
 ];
 
 export function NavBar() {

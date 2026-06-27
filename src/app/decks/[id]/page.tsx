@@ -12,6 +12,7 @@ import { ColorPips } from "@/components/cards/color-pips";
 import { DeckBanner } from "@/components/decks/deck-banner";
 import { CardRow } from "@/components/decks/card-row";
 import { DeckCardList } from "@/components/decks/deck-card-list";
+import { ArchetypePicker } from "@/components/decks/archetype-picker";
 import {
   PreviewProvider,
   DeckPreviewPane,
@@ -53,9 +54,11 @@ import {
   type Board,
   type Deck,
   type DeckTotals,
+  type DeckRecord,
   type LockIn,
   type PricedCard,
 } from "@/lib/types";
+import { DeckRecordCard } from "@/components/decks/deck-record";
 
 export default async function DeckEditorPage({
   params,
@@ -212,6 +215,12 @@ export default async function DeckEditorPage({
       card_count: 0,
     };
 
+  const { data: recordRows } = await supabase.rpc("deck_record", {
+    p_deck: id,
+  });
+  const deckRecord =
+    ((recordRows as DeckRecord[] | null) ?? [])[0] ?? null;
+
   const { data: lockData } = await supabase
     .from("lock_ins")
     .select("budget_price, bling_price, locked_at, kind")
@@ -258,6 +267,7 @@ export default async function DeckEditorPage({
         deckIdentity={deckIdentity}
         bannerImageUrl={bannerImageUrl}
         isAdmin={isAdmin}
+        record={deckRecord}
       />
     );
   }
@@ -362,6 +372,8 @@ export default async function DeckEditorPage({
         </div>
       )}
 
+      <ArchetypePicker deckId={deck.id} selected={deck.archetypes ?? []} />
+
       {/* Price summary */}
       <div className="border-border bg-card flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border p-4">
         <div>
@@ -409,6 +421,15 @@ export default async function DeckEditorPage({
 
       {isAdmin && (
         <AdminLockIn deckId={deck.id} defaultBudget={totals.budget_price} />
+      )}
+
+      {deckRecord && (
+        <DeckRecordCard
+          deckId={deck.id}
+          record={deckRecord}
+          isOwner
+          recordPublic={deck.record_public}
+        />
       )}
 
       {/* Tabs */}
