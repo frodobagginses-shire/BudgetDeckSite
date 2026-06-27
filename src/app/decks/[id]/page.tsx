@@ -278,7 +278,7 @@ export default async function DeckEditorPage({
       />
 
       <PreviewProvider initialName={previewName}>
-        <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+        <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-start-1">
 
       {/* Settings */}
