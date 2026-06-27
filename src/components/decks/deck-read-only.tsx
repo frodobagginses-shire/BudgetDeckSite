@@ -74,8 +74,8 @@ export function DeckReadOnly({
       />
 
       <PreviewProvider initialName={cards[0]?.name ?? null}>
-        <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <div className="flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-start-1">
+        <div className="flex flex-col gap-6 lg:flex-row">
+          <div className="order-2 flex min-w-0 flex-1 flex-col gap-6">
       <header className="flex flex-col gap-1">
         {ownerHandle && (
           <Link
@@ -184,7 +184,7 @@ export function DeckReadOnly({
       )}
           </div>
 
-          <aside className="hidden lg:col-start-1 lg:row-start-1 lg:block">
+          <aside className="order-1 hidden w-[300px] shrink-0 lg:block">
             <DeckPreviewPane />
           </aside>
         </div>
