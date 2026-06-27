@@ -4,17 +4,17 @@ import { Button } from "@/components/ui/button";
 const FORMATS = [
   {
     name: "$15 Commander",
-    note: "the playgroup classic",
+    note: "Singleton Commander built to a $15 cap.",
     href: "/articles/15-commander",
   },
   {
     name: "$30 Value Vintage",
-    note: "the Vintage banlist, on a budget",
+    note: "Vintage's banlist on a $30 budget.",
     href: "/articles/30-value-vintage",
   },
   {
     name: "$50 Modern",
-    note: "Modern's pool, price-capped",
+    note: "The Modern card pool, capped at $50.",
     href: "/articles/50-modern",
   },
 ];
@@ -61,7 +61,7 @@ export default function Home() {
           >
             <div className="text-base font-semibold">{f.name}</div>
             <div className="text-muted-foreground mt-1 text-sm">{f.note}</div>
-            <div className="text-brand-600 mt-3 text-xs font-medium opacity-0 transition group-hover:opacity-100">
+            <div className="text-brand-600 mt-3 text-xs font-medium group-hover:underline">
               Read the format guide →
             </div>
           </Link>

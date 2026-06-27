@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { deleteDeck, updateDeckMeta, updateDeckPrimer } from "@/app/decks/actions";
 import { CopyLinkButton } from "@/components/decks/copy-link-button";
 import { DeleteDeckButton } from "@/components/decks/delete-deck-button";
+import { AdminLockIn } from "@/components/decks/admin-lock-in";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { AddCardSearch } from "@/components/decks/add-card-search";
 import { BulkImport } from "@/components/decks/bulk-import";
@@ -79,6 +80,16 @@ export default async function DeckEditorPage({
   if (!deckData) notFound();
   const deck = deckData as Deck;
   const isOwner = !!user && deck.owner_id === user.id;
+
+  let isAdmin = false;
+  if (user) {
+    const { data: prof } = await supabase
+      .from("users")
+      .select("is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+    isAdmin = !!prof?.is_admin;
+  }
 
   let parent: LineageParent | null = null;
   if (deck.parent_deck_id && deck.show_lineage) {
@@ -246,6 +257,7 @@ export default async function DeckEditorPage({
         liked={liked}
         deckIdentity={deckIdentity}
         bannerImageUrl={bannerImageUrl}
+        isAdmin={isAdmin}
       />
     );
   }
@@ -518,6 +530,10 @@ export default async function DeckEditorPage({
           </button>
         </form>
       </section>
+      )}
+
+      {isAdmin && (
+        <AdminLockIn deckId={deck.id} defaultBudget={totals.budget_price} />
       )}
 
       {/* Danger zone */}

@@ -19,6 +19,7 @@ import {
   PreviewProvider,
   DeckPreviewPane,
 } from "@/components/decks/deck-preview";
+import { AdminLockIn } from "@/components/decks/admin-lock-in";
 
 export function DeckReadOnly({
   deck,
@@ -34,6 +35,7 @@ export function DeckReadOnly({
   liked,
   deckIdentity,
   bannerImageUrl,
+  isAdmin = false,
 }: {
   deck: Deck;
   ownerHandle: string | null;
@@ -48,6 +50,7 @@ export function DeckReadOnly({
   liked: boolean;
   deckIdentity: string[];
   bannerImageUrl: string | null;
+  isAdmin?: boolean;
 }) {
   const overBudget =
     deck.threshold_amount != null && totals.budget_price > deck.threshold_amount;
@@ -146,6 +149,10 @@ export function DeckReadOnly({
           </div>
         </div>
       </div>
+
+      {isAdmin && (
+        <AdminLockIn deckId={deck.id} defaultBudget={totals.budget_price} />
+      )}
 
       {/* Mana curve */}
       <section>

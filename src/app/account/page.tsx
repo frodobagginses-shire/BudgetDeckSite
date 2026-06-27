@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ProfileForm } from "@/components/account/profile-form";
 
 export default async function AccountPage() {
   const supabase = await createClient();
@@ -20,21 +21,17 @@ export default async function AccountPage() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-16">
       <h1 className="text-3xl font-bold tracking-tight">Your account</h1>
 
-      <div className="border-border bg-card flex flex-col gap-2 rounded-xl border p-5">
-        <div className="text-sm">
-          <span className="text-muted-foreground">Handle: </span>
-          <span className="font-medium">@{profile?.handle ?? "—"}</span>
-        </div>
-        <div className="text-sm">
-          <span className="text-muted-foreground">Name: </span>
-          <span className="font-medium">
-            {profile?.display_name ?? "—"}
-          </span>
-        </div>
-        <div className="text-sm">
-          <span className="text-muted-foreground">Email: </span>
-          <span className="font-medium">{user.email}</span>
-        </div>
+      <ProfileForm
+        handle={profile?.handle ?? ""}
+        displayName={profile?.display_name ?? ""}
+      />
+
+      <div className="border-border bg-card rounded-xl border p-5 text-sm">
+        <span className="text-muted-foreground">Email: </span>
+        <span className="font-medium">{user.email}</span>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Your email is private and never shown on your public profile.
+        </p>
       </div>
 
       <div className="flex items-center gap-4">

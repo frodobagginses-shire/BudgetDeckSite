@@ -512,6 +512,33 @@ export async function lockInDeck(deckId: string) {
   revalidatePath(`/decks/${deckId}`);
 }
 
+/** Admin retroactive Lock In: stamp a backdated creator Lock-In on any deck
+ * (attributed to that deck's owner). Gated to admins by the SQL function. */
+export async function adminLockIn(
+  deckId: string,
+  lockedAtISO: string,
+  budget: number,
+  bling: number | null
+): Promise<{ ok: boolean; message?: string }> {
+  const { supabase, user } = await requireUser();
+  const { data: prof } = await supabase
+    .from("users")
+    .select("is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!prof?.is_admin) return { ok: false, message: "Admins only." };
+
+  const { error } = await supabase.rpc("admin_lock_in", {
+    p_deck_id: deckId,
+    p_locked_at: lockedAtISO,
+    p_budget: budget,
+    p_bling: bling,
+  });
+  if (error) return { ok: false, message: error.message };
+  revalidatePath(`/decks/${deckId}`);
+  return { ok: true };
+}
+
 /** Visitor Lock In: a logged-in non-owner stamps the deck to their profile. */
 export async function visitorLockIn(deckId: string) {
   const { supabase, user } = await requireUser();
