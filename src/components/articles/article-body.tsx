@@ -1,7 +1,7 @@
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
+import type { ComponentProps } from "react";
 import remarkGfm from "remark-gfm";
 import { MarkdownAnchor } from "@/components/markdown-anchor";
-import { MarkdownImage } from "@/components/markdown-image";
 
 /** Pre-process article Markdown:
  * - [[Card Name]] → a `card:` link the MarkdownAnchor turns into an interactive
@@ -23,6 +23,41 @@ function preprocess(body: string): string {
       `![{${token}}](mana:${token.toUpperCase().replace(/\//g, "")})`
   );
   return out;
+}
+
+/** Image renderer. `mana:CODE` → an inline MTG mana symbol (Scryfall symbol
+ * SVG), sized to the text; anything else → a normal block content image.
+ * Inline styles are used for the symbol so it never depends on a purgeable
+ * utility class. */
+export function MarkdownImage({ src, alt }: ComponentProps<"img">) {
+  const url = typeof src === "string" ? src : "";
+
+  if (url.startsWith("mana:")) {
+    const code = url.slice("mana:".length);
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`https://svgs.scryfall.io/card-symbols/${code}.svg`}
+        alt={alt ?? code}
+        style={{
+          display: "inline-block",
+          height: "1em",
+          width: "1em",
+          verticalAlign: "-0.125em",
+          margin: "0 0.05em",
+        }}
+      />
+    );
+  }
+
+  // eslint-disable-next-line @next/next/no-img-element
+  return (
+    <img
+      src={url}
+      alt={alt ?? ""}
+      className="border-border mx-auto my-4 max-h-[26rem] w-auto rounded-xl border"
+    />
+  );
 }
 
 /** Renders article/primer Markdown. react-markdown does not emit raw HTML, so
