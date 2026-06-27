@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { createDeck } from "@/app/decks/actions";
-import { GAME_FORMATS, type SearchCard } from "@/lib/types";
+import { GAME_FORMATS } from "@/lib/types";
+import { useCardSearch } from "@/lib/use-card-search";
 import { Button } from "@/components/ui/button";
 
 const field = "border-border bg-background rounded-md border px-3 py-2 text-sm";
@@ -94,33 +95,7 @@ function CommanderPicker({
   value: { name: string; oracle_id: string } | null;
   onChange: (v: { name: string; oracle_id: string } | null) => void;
 }) {
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState<SearchCard[]>([]);
-  const [open, setOpen] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (timer.current) clearTimeout(timer.current);
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
-    timer.current = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `/api/cards/search?q=${encodeURIComponent(q)}&limit=8`
-        );
-        const json = await res.json();
-        setResults((json.results ?? []) as SearchCard[]);
-        setOpen(true);
-      } catch {
-        setResults([]);
-      }
-    }, 200);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [q]);
+  const { q, setQ, results, open, reset } = useCardSearch(8);
 
   if (value) {
     return (
@@ -153,9 +128,7 @@ function CommanderPicker({
                 type="button"
                 onClick={() => {
                   onChange({ name: r.name, oracle_id: r.oracle_id });
-                  setQ("");
-                  setResults([]);
-                  setOpen(false);
+                  reset();
                 }}
                 className="hover:bg-muted block w-full px-3 py-2 text-left text-sm"
               >

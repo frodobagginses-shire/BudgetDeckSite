@@ -25,6 +25,8 @@ export interface Deck {
   parent_deck_id: string | null;
   show_lineage: boolean;
   banner_scryfall_id: string | null;
+  banner_pos_x: number;
+  banner_pos_y: number;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +45,8 @@ export interface PricedCard {
   name: string;
   type_line: string | null;
   cmc: number | null;
+  color_identity: string[];
+  rarity: string | null;
   set_code: string | null;
   collector_number: string | null;
   board: Board;

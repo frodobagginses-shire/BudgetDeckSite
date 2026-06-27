@@ -119,6 +119,21 @@ export async function toggleLike(deckId: string) {
   revalidatePath(`/decks/${deckId}`);
 }
 
+/** Set the banner focal position (object-position percentages, 0–100). */
+export async function setBannerPosition(
+  deckId: string,
+  x: number,
+  y: number
+) {
+  const { supabase } = await requireUser();
+  const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
+  await supabase
+    .from("decks")
+    .update({ banner_pos_x: clamp(x), banner_pos_y: clamp(y) })
+    .eq("id", deckId);
+  revalidatePath(`/decks/${deckId}`);
+}
+
 /** Set (or clear, with "") the deck's banner card. */
 export async function setBanner(deckId: string, scryfallId: string) {
   const { supabase } = await requireUser();

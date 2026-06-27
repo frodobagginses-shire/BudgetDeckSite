@@ -1,42 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addCard } from "@/app/decks/actions";
 import { formatUsd } from "@/lib/format";
-import type { SearchCard } from "@/lib/types";
+import { useCardSearch } from "@/lib/use-card-search";
 
 export function AddCardSearch({ deckId }: { deckId: string }) {
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState<SearchCard[]>([]);
-  const [open, setOpen] = useState(false);
+  const { q, setQ, results, open, setOpen, reset } = useCardSearch(10);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const router = useRouter();
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (timer.current) clearTimeout(timer.current);
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
-    timer.current = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `/api/cards/search?q=${encodeURIComponent(q)}&limit=10`
-        );
-        const json = await res.json();
-        setResults((json.results ?? []) as SearchCard[]);
-        setOpen(true);
-      } catch {
-        setResults([]);
-      }
-    }, 200);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [q]);
 
   const add = (oracleId: string) => {
     startTransition(async () => {
@@ -46,9 +20,7 @@ export function AddCardSearch({ deckId }: { deckId: string }) {
         return;
       }
       setMsg(null);
-      setQ("");
-      setResults([]);
-      setOpen(false);
+      reset();
       router.refresh();
     });
   };

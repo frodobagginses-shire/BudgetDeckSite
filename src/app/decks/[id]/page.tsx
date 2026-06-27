@@ -2,12 +2,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { deleteDeck, updateDeckMeta, updateDeckPrimer } from "@/app/decks/actions";
+import { CopyLinkButton } from "@/components/decks/copy-link-button";
+import { DeleteDeckButton } from "@/components/decks/delete-deck-button";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { AddCardSearch } from "@/components/decks/add-card-search";
 import { BulkImport } from "@/components/decks/bulk-import";
 import { ColorPips } from "@/components/cards/color-pips";
 import { DeckBanner } from "@/components/decks/deck-banner";
 import { CardRow } from "@/components/decks/card-row";
+import { DeckCardList } from "@/components/decks/deck-card-list";
+import {
+  PreviewProvider,
+  DeckPreviewPane,
+} from "@/components/decks/deck-preview";
 import { DeckReadOnly } from "@/components/decks/deck-read-only";
 import { ExportMenu } from "@/components/decks/export-menu";
 import { BuyDeckButton } from "@/components/decks/buy-deck-button";
@@ -39,7 +46,7 @@ export async function generateMetadata({
     openGraph: { title: `${data.name} — Budget Deck Site` },
   };
 }
-import { formatUsd, getTypeBucket, typeBucketRank } from "@/lib/format";
+import { formatUsd } from "@/lib/format";
 import {
   GAME_FORMATS,
   type Board,
@@ -246,89 +253,93 @@ export default async function DeckEditorPage({
   const overBudget =
     deck.threshold_amount != null && totals.budget_price > deck.threshold_amount;
 
-  // Group by type bucket, with a cheapest subtotal per group.
+  // Mainboard cards excluding the commander (which renders in its own section).
   const commanderCards = cards.filter((c) => commanderIds.has(c.scryfall_id));
   const mainNonCommander = cards.filter(
     (c) => !commanderIds.has(c.scryfall_id)
   );
-  const buckets = new Map<string, PricedCard[]>();
-  for (const c of mainNonCommander) {
-    const k = getTypeBucket(c.type_line);
-    const arr = buckets.get(k);
-    if (arr) arr.push(c);
-    else buckets.set(k, [c]);
-  }
-  const groups = [...buckets.entries()].sort(
-    (a, b) => typeBucketRank(a[0]) - typeBucketRank(b[0])
-  );
+  const previewName =
+    commanderCards[0]?.name ?? mainNonCommander[0]?.name ?? null;
 
   const updateBound = updateDeckMeta.bind(null, deck.id);
   const deleteBound = deleteDeck.bind(null, deck.id);
   const updatePrimerBound = updateDeckPrimer.bind(null, deck.id);
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-10">
       <DeckBanner
         deckId={deck.id}
         imageUrl={bannerImageUrl}
         canEdit
         choices={bannerChoices}
         currentBannerId={bannerId}
+        posX={deck.banner_pos_x ?? 50}
+        posY={deck.banner_pos_y ?? 50}
       />
 
+      <PreviewProvider initialName={previewName}>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+          <div className="flex min-w-0 flex-col gap-6">
+
       {/* Settings */}
-      <form action={updateBound} className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-1 flex-col gap-1 text-sm">
-          <span className="text-muted-foreground text-xs">Name</span>
-          <input
-            name="name"
-            defaultValue={deck.name}
-            className="border-border bg-background rounded-md border px-3 py-2 text-base font-semibold"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground text-xs">Format</span>
-          <select
-            name="game_format"
-            defaultValue={deck.game_format}
-            className="border-border bg-background rounded-md border px-2 py-2 capitalize"
-          >
-            {GAME_FORMATS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex w-24 flex-col gap-1 text-sm">
-          <span className="text-muted-foreground text-xs">Cap $</span>
-          <input
-            name="threshold_amount"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={deck.threshold_amount ?? ""}
-            className="border-border bg-background rounded-md border px-2 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground text-xs">Visibility</span>
-          <select
-            name="visibility"
-            defaultValue={deck.visibility}
-            className="border-border bg-background rounded-md border px-2 py-2"
-          >
-            <option value="private">Private</option>
-            <option value="unlisted">Unlisted</option>
-            <option value="public">Public</option>
-          </select>
-        </label>
-        <button
-          type="submit"
-          className="border-border hover:bg-muted rounded-md border px-3 py-2 text-sm"
-        >
-          Save
-        </button>
+      <form
+        action={updateBound}
+        className="border-border bg-card flex flex-col gap-4 rounded-xl border p-4"
+      >
+        <input
+          name="name"
+          defaultValue={deck.name}
+          aria-label="Deck name"
+          className="border-border bg-background w-full rounded-md border px-3 py-2 text-lg font-semibold"
+        />
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-muted-foreground text-xs">Format</span>
+            <select
+              name="game_format"
+              defaultValue={deck.game_format}
+              className="border-border bg-background h-9 rounded-md border px-2 text-sm capitalize"
+            >
+              {GAME_FORMATS.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex w-24 flex-col gap-1">
+            <span className="text-muted-foreground text-xs">Cap $</span>
+            <input
+              name="threshold_amount"
+              type="number"
+              step="0.01"
+              min="0"
+              defaultValue={deck.threshold_amount ?? ""}
+              className="border-border bg-background h-9 rounded-md border px-2 text-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-muted-foreground text-xs">Visibility</span>
+            <select
+              name="visibility"
+              defaultValue={deck.visibility}
+              className="border-border bg-background h-9 rounded-md border px-2 text-sm capitalize"
+            >
+              <option value="private">Private</option>
+              <option value="unlisted">Unlisted</option>
+              <option value="public">Public</option>
+            </select>
+          </label>
+          <div className="ml-auto flex items-center gap-2">
+            <CopyLinkButton />
+            <button
+              type="submit"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-md px-4 text-sm font-medium"
+            >
+              Save
+            </button>
+          </div>
+        </div>
       </form>
 
       <DeckLineage parent={parent} forkCount={forkCount} />
@@ -454,35 +465,12 @@ export default async function DeckEditorPage({
           No cards yet — search above to add some.
         </p>
       ) : (
-        <div className="flex flex-col gap-5">
-          {groups.map(([bucket, list]) => {
-            const subtotal = list.reduce(
-              (s, c) => s + (c.line_cheapest ?? 0),
-              0
-            );
-            const count = list.reduce((s, c) => s + c.quantity, 0);
-            return (
-              <section key={bucket}>
-                <div className="text-muted-foreground mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
-                  <span>
-                    {bucket} ({count})
-                  </span>
-                  <span>{formatUsd(subtotal)}</span>
-                </div>
-                <div className="divide-border divide-y">
-                  {list.map((c) => (
-                    <CardRow
-                      key={c.scryfall_id}
-                      deckId={deck.id}
-                      card={c}
-                      commanderEligible={deck.game_format === "commander"}
-                    />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
+        <DeckCardList
+          cards={mainNonCommander}
+          variant="editor"
+          deckId={deck.id}
+          commanderEligible={deck.game_format === "commander"}
+        />
       )}
 
       {/* Other boards */}
@@ -533,14 +521,16 @@ export default async function DeckEditorPage({
       )}
 
       {/* Danger zone */}
-      <form action={deleteBound} className="pt-4">
-        <button
-          type="submit"
-          className="text-muted-foreground hover:text-destructive text-xs"
-        >
-          Delete deck
-        </button>
-      </form>
+      <div className="pt-4">
+        <DeleteDeckButton action={deleteBound} />
+      </div>
+          </div>
+
+          <aside className="hidden lg:block">
+            <DeckPreviewPane />
+          </aside>
+        </div>
+      </PreviewProvider>
     </main>
   );
 }

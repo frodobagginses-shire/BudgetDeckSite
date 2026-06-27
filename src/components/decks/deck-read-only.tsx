@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { formatUsd, getTypeBucket, typeBucketRank } from "@/lib/format";
+import { formatUsd } from "@/lib/format";
 import type { Deck, DeckTotals, LockIn, PricedCard } from "@/lib/types";
 import { LockInBadge } from "@/components/decks/lock-in-badge";
 import { ExportMenu } from "@/components/decks/export-menu";
 import { BuyDeckButton } from "@/components/decks/buy-deck-button";
-import { BuyCardLink } from "@/components/decks/buy-card-link";
 import { VisitorLockInButton } from "@/components/decks/visitor-lock-in-button";
 import { ForkButton } from "@/components/decks/fork-button";
 import {
@@ -13,9 +12,13 @@ import {
 } from "@/components/decks/deck-lineage";
 import { ArticleBody } from "@/components/articles/article-body";
 import { LikeButton } from "@/components/decks/like-button";
-import { CardHover } from "@/components/cards/card-hover";
 import { ColorPips } from "@/components/cards/color-pips";
 import { DeckBanner } from "@/components/decks/deck-banner";
+import { DeckCardList } from "@/components/decks/deck-card-list";
+import {
+  PreviewProvider,
+  DeckPreviewPane,
+} from "@/components/decks/deck-preview";
 
 export function DeckReadOnly({
   deck,
@@ -49,18 +52,6 @@ export function DeckReadOnly({
   const overBudget =
     deck.threshold_amount != null && totals.budget_price > deck.threshold_amount;
 
-  // Group by type bucket.
-  const buckets = new Map<string, PricedCard[]>();
-  for (const c of cards) {
-    const k = getTypeBucket(c.type_line);
-    const arr = buckets.get(k);
-    if (arr) arr.push(c);
-    else buckets.set(k, [c]);
-  }
-  const groups = [...buckets.entries()].sort(
-    (a, b) => typeBucketRank(a[0]) - typeBucketRank(b[0])
-  );
-
   // Mana curve over non-land cards (0..7+).
   const curve = new Array(8).fill(0) as number[];
   for (const c of cards) {
@@ -71,14 +62,20 @@ export function DeckReadOnly({
   const maxCurve = Math.max(1, ...curve);
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-10">
       <DeckBanner
         deckId={deck.id}
         imageUrl={bannerImageUrl}
         canEdit={false}
         choices={[]}
         currentBannerId={null}
+        posX={deck.banner_pos_x ?? 50}
+        posY={deck.banner_pos_y ?? 50}
       />
+
+      <PreviewProvider initialName={cards[0]?.name ?? null}>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+          <div className="flex min-w-0 flex-col gap-6">
       <header className="flex flex-col gap-1">
         {ownerHandle && (
           <Link
@@ -174,41 +171,7 @@ export function DeckReadOnly({
       </section>
 
       {/* Card list */}
-      <div className="flex flex-col gap-5">
-        {groups.map(([bucket, list]) => {
-          const subtotal = list.reduce((s, c) => s + (c.line_cheapest ?? 0), 0);
-          const count = list.reduce((s, c) => s + c.quantity, 0);
-          return (
-            <section key={bucket}>
-              <div className="text-muted-foreground mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
-                <span>
-                  {bucket} ({count})
-                </span>
-                <span>{formatUsd(subtotal)}</span>
-              </div>
-              <div className="divide-border divide-y">
-                {list.map((c) => (
-                  <div
-                    key={c.scryfall_id}
-                    className="flex items-center gap-3 py-1.5 text-sm"
-                  >
-                    <span className="text-muted-foreground w-6 text-right tabular-nums">
-                      {c.quantity}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <CardHover name={c.name} className="text-left hover:underline" />
-                    </span>
-                    <span className="text-muted-foreground w-16 text-right tabular-nums">
-                      {formatUsd(c.line_cheapest)}
-                    </span>
-                    <BuyCardLink name={c.name} />
-                  </div>
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </div>
+      <DeckCardList cards={cards} variant="view" deckId={deck.id} />
 
       {/* Primer / description */}
       {deck.description_md && (
@@ -219,6 +182,13 @@ export function DeckReadOnly({
           <ArticleBody body={deck.description_md} />
         </section>
       )}
+          </div>
+
+          <aside className="hidden lg:block">
+            <DeckPreviewPane />
+          </aside>
+        </div>
+      </PreviewProvider>
     </main>
   );
 }

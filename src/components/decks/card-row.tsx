@@ -6,7 +6,7 @@ import { removeCard, setQuantity } from "@/app/decks/actions";
 import { formatUsd } from "@/lib/format";
 import type { PricedCard } from "@/lib/types";
 import { BuyCardLink } from "@/components/decks/buy-card-link";
-import { CardHover } from "@/components/cards/card-hover";
+import { usePreview } from "@/components/decks/deck-preview";
 import { CardRowMenu } from "@/components/decks/card-row-menu";
 
 export function CardRow({
@@ -22,6 +22,7 @@ export function CardRow({
 }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const setPreview = usePreview();
 
   const changeQty = (delta: number) =>
     startTransition(async () => {
@@ -42,6 +43,7 @@ export function CardRow({
 
   return (
     <div
+      onMouseEnter={() => setPreview(card.name)}
       className={`flex items-center gap-3 py-1.5 text-sm ${
         pending ? "opacity-50" : ""
       }`}
@@ -66,9 +68,13 @@ export function CardRow({
         </button>
       </div>
 
-      <span className="min-w-0 flex-1">
-        <CardHover name={card.name} className="text-left hover:underline" />
-      </span>
+      <button
+        type="button"
+        onClick={() => setPreview(card.name)}
+        className="min-w-0 flex-1 truncate text-left hover:underline"
+      >
+        {card.name}
+      </button>
 
       {!card.counts_toward_budget && (
         <span
