@@ -114,6 +114,14 @@ export default async function ProfilePage({
           {user && !isOwnProfile && (
             <FollowButton userId={profile.id} following={isFollowing} />
           )}
+          {isOwnProfile && (
+            <Link
+              href="/account"
+              className="border-border hover:bg-muted shrink-0 rounded-md border px-3 py-1.5 text-sm font-medium"
+            >
+              Account settings
+            </Link>
+          )}
         </div>
         {profile.display_name && (
           <span className="text-muted-foreground">{profile.display_name}</span>

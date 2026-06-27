@@ -11,7 +11,7 @@ const LINKS = [
   { href: "/matches", label: "Matches" },
 ];
 
-export function NavBar() {
+export function NavBar({ account }: { account: { handle: string } | null }) {
   const pathname = usePathname();
   const active = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -38,9 +38,18 @@ export function NavBar() {
             {l.label}
           </Link>
         ))}
-        <Link href="/account" className={`ml-auto ${cls("/account")}`}>
-          Account
-        </Link>
+        {account ? (
+          <Link
+            href={`/users/${account.handle}`}
+            className={`ml-auto ${cls(`/users/${account.handle}`)}`}
+          >
+            @{account.handle}
+          </Link>
+        ) : (
+          <Link href="/login" className={`ml-auto ${cls("/login")}`}>
+            Sign in
+          </Link>
+        )}
       </nav>
     </header>
   );

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NavBar } from "@/components/nav-bar";
 import { Footer } from "@/components/footer";
+import { createClient } from "@/lib/supabase/server";
 
 const sans = Geist({
   variable: "--font-sans",
@@ -22,18 +23,32 @@ export const metadata: Metadata = {
     "A Magic: The Gathering deck builder focused on price-capped decks. Build to a budget, validate on the cheapest printing, and Lock In a dated price.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let account: { handle: string } | null = null;
+  if (user) {
+    const { data: prof } = await supabase
+      .from("users")
+      .select("handle")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (prof?.handle) account = { handle: prof.handle as string };
+  }
+
   return (
     <html
       lang="en"
       className={`${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="bg-background text-foreground flex min-h-full flex-col">
-        <NavBar />
+        <NavBar account={account} />
         {children}
         <Footer />
       </body>
