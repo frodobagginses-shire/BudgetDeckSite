@@ -393,32 +393,26 @@ export async function importDeckList(
   if (parsed.length === 0) return { imported: 0, unmatched: [] };
 
   const uniqueNames = Array.from(new Set(parsed.map((p) => p.name)));
-  const { data: matched } = await supabase
-    .from("cards")
-    .select("scryfall_id, name, oracle_id, type_line")
-    .in("name", uniqueNames);
+  // Resolve every name to a single (cheapest) printing in one shot. The RPC
+  // returns at most one row per name — case-insensitive, with double-faced
+  // front names handled — so results can't be truncated by the API row cap.
+  const { data: matched } = await supabase.rpc("resolve_card_names", {
+    p_names: uniqueNames,
+  });
   const byName = new Map<
     string,
-    { scryfall_id: string; oracle_id: string; type_line: string | null }
+    { scryfall_id: string; type_line: string | null }
   >();
-  for (const c of matched ?? []) {
-    if (!byName.has(c.name))
-      byName.set(c.name, {
-        scryfall_id: c.scryfall_id,
-        oracle_id: c.oracle_id,
-        type_line: c.type_line,
-      });
+  for (const c of (matched ?? []) as {
+    input_name: string;
+    scryfall_id: string;
+    type_line: string | null;
+  }[]) {
+    byName.set(c.input_name.toLowerCase(), {
+      scryfall_id: c.scryfall_id,
+      type_line: c.type_line,
+    });
   }
-
-  const oracleIds = Array.from(
-    new Set([...byName.values()].map((v) => v.oracle_id))
-  );
-  const { data: cheap } = await supabase
-    .from("card_cheapest")
-    .select("oracle_id, cheapest_scryfall_id")
-    .in("oracle_id", oracleIds);
-  const cheapest = new Map<string, string>();
-  for (const c of cheap ?? []) cheapest.set(c.oracle_id, c.cheapest_scryfall_id);
 
   const { data: existingRows } = await supabase
     .from("deck_cards")
@@ -431,12 +425,12 @@ export async function importDeckList(
   const unmatched: string[] = [];
   const agg = new Map<string, { qty: number; counts: boolean }>();
   for (const p of parsed) {
-    const card = byName.get(p.name);
+    const card = byName.get(p.name.toLowerCase());
     if (!card) {
       unmatched.push(p.name);
       continue;
     }
-    const scryfallId = cheapest.get(card.oracle_id) ?? card.scryfall_id;
+    const scryfallId = card.scryfall_id;
     const counts = !(card.type_line ?? "").includes("Basic");
     const cur = agg.get(scryfallId);
     if (cur) cur.qty += p.qty;
