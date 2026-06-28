@@ -172,11 +172,9 @@ export default async function ProfilePage({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Locked In Decks</h2>
+        <h2 className="text-lg font-semibold">Price Locks</h2>
         {locks.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No locked-in decks yet.
-          </p>
+          <p className="text-muted-foreground text-sm">No price locks yet.</p>
         ) : (
           <ul className="divide-border divide-y">
             {locks.map((l) => {
@@ -190,7 +188,8 @@ export default async function ProfilePage({
                   >
                     <span className="font-medium">{deck.name}</span>
                     <span className="text-muted-foreground text-sm">
-                      🔒 {formatUsd(l.budget_price)} on {fmtDate(l.locked_at)}
+                      🔒 Locked at {formatUsd(l.budget_price)} ·{" "}
+                      {fmtDate(l.locked_at)}
                     </span>
                   </Link>
                 </li>

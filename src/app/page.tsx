@@ -36,8 +36,8 @@ export default function Home() {
         <p className="text-muted-foreground text-lg text-balance">
           Validate every list on the cheapest printing, bling it out with the
           printings you love, and{" "}
-          <span className="text-foreground font-semibold">Lock In</span> a dated
-          price you can prove later.
+          <span className="text-foreground font-semibold">Lock In</span> a
+          timestamped price you can prove later.
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-3">

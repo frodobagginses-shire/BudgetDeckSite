@@ -21,7 +21,7 @@ export function LockInButton({ deckId }: { deckId: string }) {
         })
       }
     >
-      {pending ? "Locking in…" : "Lock In price"}
+      {pending ? "Locking in…" : "Lock In Price"}
     </Button>
   );
 }

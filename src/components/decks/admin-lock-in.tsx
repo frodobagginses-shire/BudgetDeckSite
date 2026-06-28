@@ -28,7 +28,9 @@ export function AdminLockIn({
       // Noon UTC avoids the date shifting a day across time zones.
       const iso = new Date(`${date}T12:00:00Z`).toISOString();
       const res = await adminLockIn(deckId, iso, Number(amount) || 0, null);
-      setMsg(res.ok ? "Retroactive Lock-In applied." : (res.message ?? "Failed."));
+      setMsg(
+        res.ok ? "Retroactive Price Lock applied." : (res.message ?? "Failed.")
+      );
       if (res.ok) router.refresh();
     });
   };
@@ -39,16 +41,16 @@ export function AdminLockIn({
   return (
     <section className="rounded-xl border border-amber-300 bg-amber-50 p-4">
       <div className="text-sm font-semibold text-amber-900">
-        Admin · retroactive Lock-In
+        Admin · retroactive Price Lock
       </div>
       <p className="mt-1 text-xs text-amber-800/80">
-        Stamp this deck with a backdated Lock-In on the owner&apos;s behalf, for
-        decks built before the site existed. This replaces any existing Lock-In
-        so it becomes the deck&apos;s official record.
+        Stamp this deck with a backdated Price Lock on the owner&apos;s behalf,
+        for decks built before the site existed. This replaces any existing
+        Price Lock so it becomes the deck&apos;s official record.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs font-medium text-amber-900">
-          Lock-In date
+          Price Lock date
           <input
             type="date"
             value={date}
