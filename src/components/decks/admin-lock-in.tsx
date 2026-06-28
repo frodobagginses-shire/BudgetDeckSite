@@ -42,8 +42,9 @@ export function AdminLockIn({
         Admin · retroactive Lock-In
       </div>
       <p className="mt-1 text-xs text-amber-800/80">
-        Stamp this deck with a backdated Lock-In on the owner&apos;s behalf —
-        for decks built before the site existed.
+        Stamp this deck with a backdated Lock-In on the owner&apos;s behalf, for
+        decks built before the site existed. This replaces any existing Lock-In
+        so it becomes the deck&apos;s official record.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs font-medium text-amber-900">

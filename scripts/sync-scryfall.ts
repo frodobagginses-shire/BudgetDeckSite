@@ -60,8 +60,11 @@ interface ScryfallCard {
   color_identity?: string[];
   rarity?: string;
   layout?: string;
+  oracle_text?: string;
+  keywords?: string[];
   image_uris?: { normal?: string; small?: string; art_crop?: string };
   card_faces?: {
+    oracle_text?: string;
     image_uris?: { normal?: string; small?: string; art_crop?: string };
   }[];
   prices?: { usd?: string | null; usd_foil?: string | null };
@@ -83,6 +86,8 @@ interface CardRow {
   color_identity: string[];
   rarity: string | null;
   layout: string | null;
+  oracle_text: string | null;
+  keywords: string[];
   image_normal: string | null;
   image_small: string | null;
   image_art_crop: string | null;
@@ -104,6 +109,16 @@ function toRow(c: ScryfallCard): CardRow | null {
   if (c.layout && SKIP_LAYOUTS.has(c.layout)) return null;
 
   const img = c.image_uris ?? c.card_faces?.[0]?.image_uris ?? {};
+  // Multi-faced cards keep oracle text on the faces; join them.
+  const oracleText =
+    c.oracle_text ??
+    (c.card_faces?.length
+      ? c.card_faces
+          .map((f) => f.oracle_text ?? "")
+          .filter(Boolean)
+          .join("\n//\n")
+      : null) ??
+    null;
   return {
     scryfall_id: c.id,
     oracle_id: c.oracle_id,
@@ -115,6 +130,8 @@ function toRow(c: ScryfallCard): CardRow | null {
     color_identity: c.color_identity ?? [],
     rarity: c.rarity ?? null,
     layout: c.layout ?? null,
+    oracle_text: oracleText,
+    keywords: c.keywords ?? [],
     image_normal: img.normal ?? null,
     image_small: img.small ?? null,
     image_art_crop: img.art_crop ?? null,

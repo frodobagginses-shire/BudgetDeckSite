@@ -43,6 +43,7 @@ export function CardRowMenu({
   const [printings, setPrintings] = useState<Printing[] | null>(null);
   const [qtyOpen, setQtyOpen] = useState(false);
   const [qtyVal, setQtyVal] = useState(String(card.quantity));
+  const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
@@ -176,11 +177,23 @@ export function CardRowMenu({
               disabled={pending}
               className={item}
               onClick={() =>
-                act(() => toggleCommander(deckId, card.scryfall_id))
+                startTransition(async () => {
+                  const r = await toggleCommander(deckId, card.scryfall_id);
+                  if (!r.ok) {
+                    setMsg(r.message ?? "Can't set that as commander.");
+                    return;
+                  }
+                  setMsg(null);
+                  router.refresh();
+                  setOpen(false);
+                })
               }
             >
               {isCommander ? "Unset commander" : "Set as commander"}
             </button>
+          )}
+          {msg && (
+            <p className="text-destructive px-3 py-1.5 text-xs">{msg}</p>
           )}
 
           <button

@@ -40,7 +40,7 @@ export default async function MatchesPage() {
     const { data: playerRows } = await supabase
       .from("match_players")
       .select(
-        "match_id, user_id, deck_id, status, is_creator, users:user_id(handle, display_name), decks:deck_id(name)"
+        "match_id, user_id, deck_id, status, is_creator, deck_snapshot, users:user_id(handle, display_name), decks:deck_id(name)"
       )
       .in("match_id", matchIds);
 
@@ -71,6 +71,10 @@ export default async function MatchesPage() {
       deck_id: string | null;
       status: string;
       is_creator: boolean;
+      deck_snapshot: {
+        name?: string;
+        cards: { name: string; qty: number; board: string; commander: boolean }[];
+      } | null;
       users: UserRef;
       decks: { name: string } | null;
     }[]) {
@@ -82,6 +86,7 @@ export default async function MatchesPage() {
         deck_name: p.decks?.name ?? null,
         status: p.status,
         is_creator: p.is_creator,
+        snapshot: p.deck_snapshot ?? null,
       });
       playersByMatch.set(p.match_id, arr);
     }

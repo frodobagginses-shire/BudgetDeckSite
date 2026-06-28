@@ -5,6 +5,14 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Board, DeckTotals } from "@/lib/types";
 import { ARCHETYPE_SET, MAX_ARCHETYPES } from "@/lib/archetypes";
+import {
+  canBeCommander,
+  isBackground,
+  partnersAllowed,
+  unlimitedCopies,
+  maxCopies,
+  type RulesCard,
+} from "@/lib/commander";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -60,12 +68,18 @@ export async function createDeck(formData: FormData) {
       scryfallId = anyc?.scryfall_id as string | undefined;
     }
     if (scryfallId) {
+      const { data: rules } = await supabase
+        .from("cards")
+        .select("name, type_line, oracle_text, keywords")
+        .eq("scryfall_id", scryfallId)
+        .maybeSingle();
       await supabase.from("deck_cards").insert({
         deck_id: data.id,
         scryfall_id: scryfallId,
         quantity: 1,
         board: "main",
-        is_commander: true,
+        // Only flag it as commander if it's actually a legal commander.
+        is_commander: rules ? canBeCommander(rules as RulesCard) : false,
       });
     }
   }
@@ -257,13 +271,18 @@ export async function addCard(
     name: string;
     legalities: Record<string, string>;
     color_identity: string[];
+    type_line: string | null;
+    oracle_text: string | null;
+    keywords: string[] | null;
   };
   let card: CardInfo | null = null;
+  const cardCols =
+    "name, legalities, color_identity, type_line, oracle_text, keywords";
 
   if (scryfallId) {
     const { data } = await supabase
       .from("cards")
-      .select("name, legalities, color_identity")
+      .select(cardCols)
       .eq("scryfall_id", scryfallId)
       .maybeSingle();
     if (data) card = data as CardInfo;
@@ -271,17 +290,12 @@ export async function addCard(
   if (!scryfallId) {
     const { data } = await supabase
       .from("cards")
-      .select("scryfall_id, name, legalities, color_identity")
+      .select(`scryfall_id, ${cardCols}`)
       .eq("oracle_id", oracleId)
       .limit(1)
       .maybeSingle();
     scryfallId = data?.scryfall_id as string | undefined;
-    if (data)
-      card = {
-        name: data.name as string,
-        legalities: data.legalities as Record<string, string>,
-        color_identity: (data.color_identity as string[]) ?? [],
-      };
+    if (data) card = data as unknown as CardInfo;
   }
   if (!scryfallId) return { ok: false, message: "Card not found." };
 
@@ -331,6 +345,21 @@ export async function addCard(
     .eq("scryfall_id", scryfallId)
     .eq("board", "main")
     .maybeSingle();
+
+  // Copy limits: Commander is singleton; other constructed formats allow 4.
+  // Basics and "any number of cards named …" are exempt.
+  if (format !== "casual" && existing && card && !unlimitedCopies(card)) {
+    const limit = maxCopies(format);
+    if (existing.quantity >= limit) {
+      return {
+        ok: false,
+        message:
+          format === "commander"
+            ? `${card.name}: Commander is singleton (one copy).`
+            : `${card.name}: max ${limit} copies in ${format}.`,
+      };
+    }
+  }
 
   if (existing) {
     await supabase
@@ -435,6 +464,26 @@ export async function importDeckList(
     });
   }
 
+  // Deck format + rules for the matched cards (for banlist + copy limits).
+  const { data: deck } = await supabase
+    .from("decks")
+    .select("game_format")
+    .eq("id", deckId)
+    .maybeSingle();
+  const format = (deck?.game_format ?? "casual") as string;
+
+  const sids = [...new Set([...byName.values()].map((v) => v.scryfall_id))];
+  type Rules = RulesCard & { legalities: Record<string, string> | null };
+  const rulesById = new Map<string, Rules>();
+  if (sids.length) {
+    const { data: rulesRows } = await supabase
+      .from("cards")
+      .select("scryfall_id, legalities, name, type_line, oracle_text, keywords")
+      .in("scryfall_id", sids);
+    for (const r of (rulesRows ?? []) as (Rules & { scryfall_id: string })[])
+      rulesById.set(r.scryfall_id, r);
+  }
+
   const { data: existingRows } = await supabase
     .from("deck_cards")
     .select("scryfall_id, quantity")
@@ -452,19 +501,35 @@ export async function importDeckList(
       continue;
     }
     const scryfallId = card.scryfall_id;
+    const rules = rulesById.get(scryfallId);
+    // Skip cards banned/illegal in this format.
+    if (format !== "casual" && rules?.legalities) {
+      const st = rules.legalities[format];
+      if (st && st !== "legal" && st !== "restricted") {
+        unmatched.push(`${p.name} (not legal in ${format})`);
+        continue;
+      }
+    }
     const counts = !(card.type_line ?? "").includes("Basic");
     const cur = agg.get(scryfallId);
     if (cur) cur.qty += p.qty;
     else agg.set(scryfallId, { qty: p.qty, counts });
   }
 
-  const rows = [...agg.entries()].map(([scryfall_id, v]) => ({
-    deck_id: deckId,
-    scryfall_id,
-    board: "main",
-    quantity: (existing.get(scryfall_id) ?? 0) + v.qty,
-    counts_toward_budget: v.counts,
-  }));
+  const rows = [...agg.entries()].map(([scryfall_id, v]) => {
+    const rules = rulesById.get(scryfall_id);
+    let quantity = (existing.get(scryfall_id) ?? 0) + v.qty;
+    if (format !== "casual" && (!rules || !unlimitedCopies(rules))) {
+      quantity = Math.min(quantity, maxCopies(format));
+    }
+    return {
+      deck_id: deckId,
+      scryfall_id,
+      board: "main",
+      quantity,
+      counts_toward_budget: v.counts,
+    };
+  });
   if (rows.length) {
     await supabase
       .from("deck_cards")
@@ -488,14 +553,37 @@ export async function setQuantity(
       .eq("deck_id", deckId)
       .eq("scryfall_id", scryfallId)
       .eq("board", board);
-  } else {
-    await supabase
-      .from("deck_cards")
-      .update({ quantity })
-      .eq("deck_id", deckId)
-      .eq("scryfall_id", scryfallId)
-      .eq("board", board);
+    revalidatePath(`/decks/${deckId}`);
+    return;
   }
+
+  // Clamp to the format's copy limit (Commander singleton; others 4), unless
+  // the card is exempt (basics / "any number").
+  if (quantity > 1 && board === "main") {
+    const { data: deck } = await supabase
+      .from("decks")
+      .select("game_format")
+      .eq("id", deckId)
+      .maybeSingle();
+    const format = (deck?.game_format ?? "casual") as string;
+    if (format !== "casual") {
+      const { data: c } = await supabase
+        .from("cards")
+        .select("name, type_line, oracle_text, keywords")
+        .eq("scryfall_id", scryfallId)
+        .maybeSingle();
+      if (!c || !unlimitedCopies(c as RulesCard)) {
+        quantity = Math.min(quantity, maxCopies(format));
+      }
+    }
+  }
+
+  await supabase
+    .from("deck_cards")
+    .update({ quantity })
+    .eq("deck_id", deckId)
+    .eq("scryfall_id", scryfallId)
+    .eq("board", board);
   revalidatePath(`/decks/${deckId}`);
 }
 
@@ -601,8 +689,12 @@ export async function removeVisitorLockIn(deckId: string) {
   revalidatePath(`/decks/${deckId}`);
 }
 
-/** Designate (or clear) a card as the deck's commander. */
-export async function toggleCommander(deckId: string, scryfallId: string) {
+/** Designate (or clear) a card as the deck's commander, enforcing commander
+ * legality and partner rules. Returns a message when a choice is rejected. */
+export async function toggleCommander(
+  deckId: string,
+  scryfallId: string
+): Promise<{ ok: boolean; message?: string }> {
   const { supabase } = await requireUser();
   const { data: existing } = await supabase
     .from("deck_cards")
@@ -612,6 +704,7 @@ export async function toggleCommander(deckId: string, scryfallId: string) {
     .eq("board", "main")
     .maybeSingle();
 
+  // Unsetting is always allowed.
   if (existing?.is_commander) {
     await supabase
       .from("deck_cards")
@@ -619,20 +712,77 @@ export async function toggleCommander(deckId: string, scryfallId: string) {
       .eq("deck_id", deckId)
       .eq("scryfall_id", scryfallId)
       .eq("board", "main");
-  } else {
-    // For now a single commander: clear others, then set this one (on main).
-    await supabase
-      .from("deck_cards")
-      .update({ is_commander: false })
-      .eq("deck_id", deckId)
-      .eq("is_commander", true);
+    revalidatePath(`/decks/${deckId}`);
+    return { ok: true };
+  }
+
+  const { data: candData } = await supabase
+    .from("cards")
+    .select("name, type_line, oracle_text, keywords")
+    .eq("scryfall_id", scryfallId)
+    .maybeSingle();
+  if (!candData) return { ok: false, message: "Card not found." };
+  const candidate = candData as RulesCard;
+
+  const { data: cmdRows } = await supabase
+    .from("deck_cards")
+    .select("scryfall_id")
+    .eq("deck_id", deckId)
+    .eq("is_commander", true);
+  const cmdIds = (cmdRows ?? []).map((r) => r.scryfall_id as string);
+  let currentCmds: RulesCard[] = [];
+  if (cmdIds.length) {
+    const { data } = await supabase
+      .from("cards")
+      .select("name, type_line, oracle_text, keywords")
+      .in("scryfall_id", cmdIds);
+    currentCmds = (data ?? []) as RulesCard[];
+  }
+
+  const setIt = async () => {
     await supabase
       .from("deck_cards")
       .update({ is_commander: true, board: "main" })
       .eq("deck_id", deckId)
       .eq("scryfall_id", scryfallId);
+  };
+
+  if (currentCmds.length === 0) {
+    if (!canBeCommander(candidate)) {
+      return {
+        ok: false,
+        message: `${candidate.name} can't be a commander. Use a legendary creature or a card that says it can be your commander.`,
+      };
+    }
+    await setIt();
+  } else if (currentCmds.length === 1) {
+    const pairOk =
+      partnersAllowed(currentCmds[0], candidate) &&
+      (canBeCommander(candidate) || isBackground(candidate));
+    if (pairOk) {
+      await setIt();
+    } else if (canBeCommander(candidate)) {
+      // Not a legal pair, but a valid sole commander → swap.
+      await supabase
+        .from("deck_cards")
+        .update({ is_commander: false })
+        .eq("deck_id", deckId)
+        .eq("is_commander", true);
+      await setIt();
+    } else {
+      return {
+        ok: false,
+        message: `${candidate.name} can't pair with your current commander (needs Partner, Choose a Background, etc.).`,
+      };
+    }
+  } else {
+    return {
+      ok: false,
+      message: "You already have two commanders. Unset one first.",
+    };
   }
   revalidatePath(`/decks/${deckId}`);
+  return { ok: true };
 }
 
 /** Swap the chosen printing of a card (affects Bling price + image). */

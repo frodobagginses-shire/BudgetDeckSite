@@ -12,6 +12,13 @@ import {
 } from "@/app/matches/actions";
 
 export type Deck = { id: string; name: string; locked_price: number };
+export type SnapshotCard = {
+  name: string;
+  qty: number;
+  board: string;
+  commander: boolean;
+};
+export type Snapshot = { name?: string; cards: SnapshotCard[] } | null;
 export type Player = {
   user_id: string;
   name: string;
@@ -19,6 +26,7 @@ export type Player = {
   deck_name: string | null;
   status: string;
   is_creator: boolean;
+  snapshot?: Snapshot;
 };
 export type Pending = {
   result_id: string;
@@ -214,6 +222,7 @@ export function MatchCard({
   const mine = match.players.find((p) => p.user_id === me);
   const [deck, setDeck] = useState(mine?.deck_id ?? "");
   const [winner, setWinner] = useState("");
+  const [showLists, setShowLists] = useState(false);
 
   const accepted = match.players.filter((p) => p.status === "accepted");
   const eligible =
@@ -402,16 +411,50 @@ export function MatchCard({
       )}
 
       {match.status === "completed" && (
-        <div className="border-border border-t pt-2 text-sm font-medium">
-          {match.pending
-            ? match.pending.is_draw
-              ? "Draw recorded."
-              : `${
-                  match.players.find(
-                    (p) => p.user_id === match.pending?.winner_user_id
-                  )?.name ?? "Someone"
-                } won.`
-            : "Final result recorded."}
+        <div className="border-border flex flex-col gap-2 border-t pt-2 text-sm">
+          <div className="font-medium">
+            {match.pending
+              ? match.pending.is_draw
+                ? "Draw recorded."
+                : `${
+                    match.players.find(
+                      (p) => p.user_id === match.pending?.winner_user_id
+                    )?.name ?? "Someone"
+                  } won.`
+              : "Final result recorded."}
+          </div>
+          {match.players.some((p) => p.snapshot) && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowLists((s) => !s)}
+                className="text-brand-600 self-start text-xs"
+              >
+                {showLists ? "Hide decklists ▲" : "View decklists (frozen) ▼"}
+              </button>
+              {showLists && (
+                <div className="flex flex-col gap-3">
+                  {match.players.map((p) =>
+                    p.snapshot ? (
+                      <div key={p.user_id}>
+                        <div className="text-xs font-semibold">
+                          {p.name} — {p.snapshot.name ?? p.deck_name ?? "deck"}
+                        </div>
+                        <ul className="text-muted-foreground mt-0.5 text-xs sm:columns-2">
+                          {p.snapshot.cards.map((c, i) => (
+                            <li key={i}>
+                              {c.qty}× {c.name}
+                              {c.commander ? " (commander)" : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
