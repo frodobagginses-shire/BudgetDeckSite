@@ -4,6 +4,9 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleLike } from "@/app/decks/actions";
 
+// Shared layout with ViewCount so the icon + number sit at identical heights.
+const STAT_LAYOUT = "inline-flex items-center gap-1.5 text-sm leading-none";
+
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
     <svg
@@ -45,19 +48,20 @@ export function LikeButton({
   const [state, setState] = useState({ liked, count });
   useEffect(() => setState({ liked, count }), [liked, count]);
 
-  const inner = (
-    <span className="inline-flex items-center gap-1.5 text-sm leading-none">
+  const content = (
+    <>
       <HeartIcon filled={state.liked} />
       <span className="tabular-nums">{state.count}</span>
-    </span>
+    </>
   );
 
   if (!canLike) {
-    return <span className="text-muted-foreground">{inner}</span>;
+    return (
+      <span className={`${STAT_LAYOUT} text-muted-foreground`}>{content}</span>
+    );
   }
 
   const onClick = () => {
-    // Flip immediately.
     setState((s) => ({
       liked: !s.liked,
       count: s.count + (s.liked ? -1 : 1),
@@ -72,7 +76,7 @@ export function LikeButton({
     <button
       type="button"
       onClick={onClick}
-      className={`cursor-pointer transition-transform hover:scale-110 active:scale-95 ${
+      className={`${STAT_LAYOUT} cursor-pointer transition-transform hover:scale-110 active:scale-95 ${
         state.liked
           ? "text-destructive hover:opacity-80"
           : "text-muted-foreground hover:text-destructive"
@@ -80,7 +84,7 @@ export function LikeButton({
       aria-pressed={state.liked}
       aria-label={state.liked ? "Unlike deck" : "Like deck"}
     >
-      {inner}
+      {content}
     </button>
   );
 }
