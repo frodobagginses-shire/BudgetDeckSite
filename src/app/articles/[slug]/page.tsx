@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ArticleBody } from "@/components/articles/article-body";
-import { tcgplayerCardUrl } from "@/lib/affiliate";
+import { manapoolCardUrl } from "@/lib/affiliate";
 import type { Article } from "@/lib/types";
 
 export async function generateMetadata({
@@ -107,12 +107,12 @@ export default async function ArticlePage({
               <li key={name} className="flex items-center justify-between gap-3">
                 <span className="text-sm">{name}</span>
                 <a
-                  href={tcgplayerCardUrl(name)}
+                  href={manapoolCardUrl(name)}
                   target="_blank"
                   rel="noopener noreferrer nofollow sponsored"
                   className="bg-brand-600 rounded-md px-3 py-1 text-xs font-medium text-white hover:opacity-90"
                 >
-                  Buy on TCGplayer
+                  Buy on Mana Pool
                 </a>
               </li>
             ))}

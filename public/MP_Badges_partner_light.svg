@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 790.36 181.03">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+        stroke: #231f20;
+        stroke-miterlimit: 10;
+        stroke-width: 4px;
+      }
+
+      .cls-2 {
+        font-family: HelveticaNeue-Bold, 'Helvetica Neue';
+        font-size: 65.79px;
+        font-weight: 700;
+      }
+
+      .cls-3 {
+        fill: #3f82f7;
+      }
+
+      .cls-3, .cls-4 {
+        stroke-width: 0px;
+      }
+
+      .cls-4 {
+        fill: #050505;
+      }
+    </style>
+  </defs>
+  <rect class="cls-1" x="2" y="2" width="786.36" height="177.03" rx="53.99" ry="53.99"/>
+  <polygon class="cls-3" points="126.9 122.83 90.12 132.9 90.12 77.31 126.9 67.24 126.9 122.83"/>
+  <g>
+    <polygon class="cls-4" points="116.87 104.62 100.67 109.06 100.67 100.69 116.87 96.25 116.87 104.62"/>
+    <polygon class="cls-4" points="78.39 100.68 40.41 81.63 40.41 127.72 78.4 146.79 78.39 146.78 78.39 100.68"/>
+    <path class="cls-4" d="M126.9,113.17l-24.47,6.85v9.66l-12.31,3.22v-34.97s-9.54,2.61-10.57,2.89v46.11l58.99-16.15v-46.2l-11.65,3.19s0,25.4,0,25.4Z"/>
+    <polygon class="cls-4" points="78.39 69.01 78.39 69.01 40.41 49.95 40.41 80.41 78.39 99.47 78.39 69.01"/>
+    <polygon class="cls-4" points="79.56 69.15 79.56 99.61 84.48 98.27 90.12 96.72 90.12 77.31 108.51 84.13 126.9 67.24 126.9 86.66 138.55 83.47 138.55 53 79.56 69.15"/>
+    <polygon class="cls-4" points="78.99 68.4 137.16 52.35 98.45 34.11 41.39 49.68 78.99 68.4"/>
+  </g>
+  <text class="cls-2" transform="translate(167.65 115.76)"><tspan x="0" y="0">Mana Pool Partner</tspan></text>
+</svg>

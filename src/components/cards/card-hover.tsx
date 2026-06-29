@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { tcgplayerCardUrl } from "@/lib/affiliate";
+import { manapoolCardUrl } from "@/lib/affiliate";
 import { formatUsd } from "@/lib/format";
 
 interface CardData {
@@ -101,12 +101,12 @@ export function CardHover({
                   </span>
                 )}
                 <a
-                  href={tcgplayerCardUrl(name)}
+                  href={manapoolCardUrl(name)}
                   target="_blank"
                   rel="noopener noreferrer nofollow sponsored"
                   className="bg-brand-600 rounded-md px-3 py-1.5 text-center text-xs font-medium text-white hover:opacity-90"
                 >
-                  Buy on TCGplayer
+                  Buy on Mana Pool
                 </a>
               </span>
             )}

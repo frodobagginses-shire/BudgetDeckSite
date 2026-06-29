@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { tcgplayerCardUrl } from "@/lib/affiliate";
+import { manapoolCardUrl } from "@/lib/affiliate";
 import { formatUsd } from "@/lib/format";
 
 interface CardData {
@@ -101,12 +101,12 @@ export function DeckPreviewPane() {
             </div>
           )}
           <a
-            href={tcgplayerCardUrl(name)}
+            href={manapoolCardUrl(name)}
             target="_blank"
             rel="noopener noreferrer nofollow sponsored"
             className="bg-brand-600 rounded-md px-3 py-2 text-center text-sm font-medium text-white hover:opacity-90"
           >
-            Buy on TCGplayer
+            Buy on Mana Pool
           </a>
         </div>
       )}
