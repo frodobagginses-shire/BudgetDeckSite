@@ -8,6 +8,7 @@ const SORTS = [
   { value: "price_asc", label: "Price: low to high" },
   { value: "price_desc", label: "Price: high to low" },
   { value: "likes", label: "Most liked" },
+  { value: "views", label: "Most viewed" },
   { value: "name", label: "Name" },
 ];
 const LIMIT = 24;
@@ -144,6 +145,7 @@ export default async function BrowsePage({
                     {d.owner_handle && <span>· @{d.owner_handle}</span>}
                     <span>· {d.card_count} cards</span>
                     <span>· ♥ {d.like_count}</span>
+                    <span>· {d.view_count.toLocaleString()} views</span>
                     {d.threshold_amount != null && (
                       <span
                         className={`rounded-full px-2 py-0.5 ${

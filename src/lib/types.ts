@@ -97,6 +97,7 @@ export interface BrowseDeck {
   budget_price: number;
   card_count: number;
   like_count: number;
+  view_count: number;
   updated_at: string;
 }
 

@@ -12,6 +12,7 @@ import {
 } from "@/components/decks/deck-lineage";
 import { ArticleBody } from "@/components/articles/article-body";
 import { LikeButton } from "@/components/decks/like-button";
+import { ViewCount } from "@/components/decks/view-count";
 import { ColorPips } from "@/components/cards/color-pips";
 import { DeckBanner } from "@/components/decks/deck-banner";
 import { DeckCardList } from "@/components/decks/deck-card-list";
@@ -36,6 +37,7 @@ export function DeckReadOnly({
   forkCount,
   likeCount,
   liked,
+  views,
   deckIdentity,
   bannerImageUrl,
   isAdmin = false,
@@ -52,6 +54,7 @@ export function DeckReadOnly({
   forkCount: number;
   likeCount: number;
   liked: boolean;
+  views: number;
   deckIdentity: string[];
   bannerImageUrl: string | null;
   isAdmin?: boolean;
@@ -142,6 +145,7 @@ export function DeckReadOnly({
             count={likeCount}
             canLike={canLock}
           />
+          <ViewCount count={views} />
           {canLock && <VisitorLockInButton deckId={deck.id} locked={locked} />}
           {canLock && <ForkButton deckId={deck.id} />}
           <div className="ml-auto flex items-center gap-2">

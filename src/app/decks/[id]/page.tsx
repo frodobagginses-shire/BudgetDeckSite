@@ -28,6 +28,7 @@ import {
   type LineageParent,
 } from "@/components/decks/deck-lineage";
 import { LikeButton } from "@/components/decks/like-button";
+import { ViewCount } from "@/components/decks/view-count";
 
 export async function generateMetadata({
   params,
@@ -125,6 +126,13 @@ export default async function DeckEditorPage({
     .select("*", { count: "exact", head: true })
     .eq("deck_id", deck.id);
   const likeCount = likeCountRaw ?? 0;
+
+  const { data: viewRow } = await supabase
+    .from("deck_views")
+    .select("count")
+    .eq("deck_id", deck.id)
+    .maybeSingle();
+  const viewCount = Number(viewRow?.count ?? 0);
   let liked = false;
   if (user) {
     const { data: lk } = await supabase
@@ -233,6 +241,10 @@ export default async function DeckEditorPage({
 
   // Non-owners (and anonymous visitors) get the public read-only view.
   if (!isOwner) {
+    // Count this visit. Fire-and-forget so a counter hiccup never blocks the
+    // page; the displayed number reflects views prior to this one.
+    await supabase.rpc("increment_deck_view", { p_deck: deck.id });
+
     const { data: owner } = await supabase
       .from("users")
       .select("handle")
@@ -264,6 +276,7 @@ export default async function DeckEditorPage({
         forkCount={forkCount}
         likeCount={likeCount}
         liked={liked}
+        views={viewCount}
         deckIdentity={deckIdentity}
         bannerImageUrl={bannerImageUrl}
         isAdmin={isAdmin}
@@ -416,6 +429,7 @@ export default async function DeckEditorPage({
             count={likeCount}
             canLike={!!user}
           />
+          <ViewCount count={viewCount} />
         </div>
       </div>
 
