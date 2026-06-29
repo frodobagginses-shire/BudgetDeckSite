@@ -8,6 +8,7 @@ export interface ArticleFormDefaults {
   body_md?: string;
   featured_cards?: string;
   published?: boolean;
+  featured?: boolean;
 }
 
 export function ArticleForm({
@@ -66,6 +67,10 @@ export function ArticleForm({
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="publish" defaultChecked={d.published} />
         Published
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="featured" defaultChecked={d.featured} />
+        Feature on homepage (replaces the current featured article)
       </label>
       <Button type="submit" className="self-start">
         {submitLabel}

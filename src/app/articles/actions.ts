@@ -38,7 +38,8 @@ function parseForm(formData: FormData) {
     .map((s) => s.trim())
     .filter(Boolean);
   const publish = formData.get("publish") === "on";
-  return { title, slug, excerpt, body_md, featured_cards, publish };
+  const featured = formData.get("featured") === "on";
+  return { title, slug, excerpt, body_md, featured_cards, publish, featured };
 }
 
 export async function createArticle(formData: FormData) {
@@ -55,11 +56,15 @@ export async function createArticle(formData: FormData) {
       author_id: user.id,
       published_at: f.publish ? new Date().toISOString() : null,
     })
-    .select("slug")
+    .select("id, slug")
     .single();
   if (error || !data) {
     throw new Error(error?.message ?? "Could not create article");
   }
+  await supabase.rpc("set_featured_article", {
+    p_id: data.id,
+    p_on: f.featured,
+  });
   redirect(`/articles/${data.slug}`);
 }
 
@@ -95,6 +100,10 @@ export async function updateArticle(articleId: string, formData: FormData) {
   if (error || !data) {
     throw new Error(error?.message ?? "Could not update article");
   }
+  await supabase.rpc("set_featured_article", {
+    p_id: articleId,
+    p_on: f.featured,
+  });
   redirect(`/articles/${data.slug}`);
 }
 

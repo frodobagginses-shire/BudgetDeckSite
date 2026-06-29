@@ -32,10 +32,14 @@ export function AddCardSearch({ deckId }: { deckId: string }) {
         onChange={(e) => setQ(e.target.value)}
         onFocus={() => results.length && setOpen(true)}
         onKeyDown={(e) => {
-          // Shift+Enter adds the top result; plain Enter does nothing special.
+          // Shift+Enter adds the top addable result (skips grayed-out ones).
           if (e.key === "Enter" && e.shiftKey && results.length) {
             e.preventDefault();
-            add(results[0].oracle_id);
+            const top =
+              results.find(
+                (r) => r.legal !== false && r.in_identity !== false
+              ) ?? results[0];
+            add(top.oracle_id);
           }
         }}
         placeholder="Search cards to add… (try t:creature mv<=2)"

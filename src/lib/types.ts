@@ -84,6 +84,7 @@ export interface Article {
   featured_cards: string[];
   author_id: string | null;
   published_at: string | null;
+  is_featured?: boolean;
 }
 
 export interface BrowseDeck {

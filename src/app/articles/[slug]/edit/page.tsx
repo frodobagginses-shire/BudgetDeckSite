@@ -41,6 +41,7 @@ export default async function EditArticlePage({
           body_md: article.body_md,
           featured_cards: article.featured_cards.join(", "),
           published: !!article.published_at,
+          featured: !!article.is_featured,
         }}
       />
       <form action={deleteBound} className="border-border border-t pt-4">
