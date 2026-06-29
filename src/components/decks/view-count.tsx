@@ -10,7 +10,7 @@ export function ViewCount({ count }: { count: number }) {
         width="16"
         height="16"
         aria-hidden="true"
-        className="shrink-0"
+        className="block shrink-0"
         fill="none"
         stroke="currentColor"
         strokeWidth="2"
