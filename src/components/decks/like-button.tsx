@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleLike } from "@/app/decks/actions";
 
@@ -12,6 +12,9 @@ function HeartIcon({ filled }: { filled: boolean }) {
       height="16"
       aria-hidden="true"
       className="block shrink-0"
+      // Optical nudge: a heart's mass sits in the top lobes, so a geometrically
+      // centered path still reads ~1px high next to the eye. Push it down.
+      style={{ transform: "translateY(1px)" }}
       fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth="2"
@@ -34,16 +37,18 @@ export function LikeButton({
   count: number;
   canLike: boolean;
 }) {
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const router = useRouter();
 
-  // Identical markup for both states so size/spacing never shift; only the
-  // color and the heart's fill change. tabular-nums keeps the count from
-  // reflowing as the number grows.
+  // Optimistic local state so the click registers instantly; the server save
+  // and refresh happen in the background and reconcile this afterward.
+  const [state, setState] = useState({ liked, count });
+  useEffect(() => setState({ liked, count }), [liked, count]);
+
   const inner = (
     <span className="inline-flex items-center gap-1.5 text-sm leading-none">
-      <HeartIcon filled={liked} />
-      <span className="tabular-nums">{count}</span>
+      <HeartIcon filled={state.liked} />
+      <span className="tabular-nums">{state.count}</span>
     </span>
   );
 
@@ -51,23 +56,29 @@ export function LikeButton({
     return <span className="text-muted-foreground">{inner}</span>;
   }
 
+  const onClick = () => {
+    // Flip immediately.
+    setState((s) => ({
+      liked: !s.liked,
+      count: s.count + (s.liked ? -1 : 1),
+    }));
+    startTransition(async () => {
+      await toggleLike(deckId);
+      router.refresh();
+    });
+  };
+
   return (
     <button
       type="button"
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          await toggleLike(deckId);
-          router.refresh();
-        })
-      }
-      className={`transition-colors ${
-        liked
-          ? "text-destructive"
-          : "text-muted-foreground hover:text-foreground"
+      onClick={onClick}
+      className={`cursor-pointer transition-transform hover:scale-110 active:scale-95 ${
+        state.liked
+          ? "text-destructive hover:opacity-80"
+          : "text-muted-foreground hover:text-destructive"
       }`}
-      aria-pressed={liked}
-      aria-label={liked ? "Unlike deck" : "Like deck"}
+      aria-pressed={state.liked}
+      aria-label={state.liked ? "Unlike deck" : "Like deck"}
     >
       {inner}
     </button>
