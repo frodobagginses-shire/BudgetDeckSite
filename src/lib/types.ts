@@ -54,6 +54,7 @@ export interface PricedCard {
   oracle_id: string;
   name: string;
   type_line: string | null;
+  mana_cost: string | null;
   cmc: number | null;
   color_identity: string[];
   rarity: string | null;

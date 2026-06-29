@@ -10,10 +10,33 @@ import {
   type GroupKey,
   type SortKey,
   type SortDir,
+  type GroupIcon,
 } from "@/lib/deck-grouping";
 import { CardRow } from "@/components/decks/card-row";
 import { usePreview } from "@/components/decks/deck-preview";
 import { BuyCardLink } from "@/components/decks/buy-card-link";
+import { ManaCost } from "@/components/cards/mana-cost";
+import { TypeIcon } from "@/components/cards/type-icon";
+
+function GroupIconView({ icon }: { icon: GroupIcon | null }) {
+  if (!icon) return null;
+  if (icon.kind === "type") return <TypeIcon type={icon.value} />;
+  if (icon.kind === "dot")
+    return (
+      <span
+        className="inline-block size-3 rounded-full"
+        style={{ backgroundColor: icon.value }}
+      />
+    );
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://svgs.scryfall.io/card-symbols/${icon.value}.svg`}
+      alt=""
+      style={{ display: "inline-block", height: "1em", width: "1em" }}
+    />
+  );
+}
 
 export function DeckCardList({
   cards,
@@ -29,6 +52,7 @@ export function DeckCardList({
   const [groupBy, setGroupBy] = useState<GroupKey>("type");
   const [sortBy, setSortBy] = useState<SortKey>("name");
   const [dir, setDir] = useState<SortDir>("asc");
+  const [showMana, setShowMana] = useState(false);
   const setPreview = usePreview();
 
   // Remember the viewer's preference across decks/sessions.
@@ -40,6 +64,7 @@ export function DeckCardList({
         if (v.groupBy) setGroupBy(v.groupBy);
         if (v.sortBy) setSortBy(v.sortBy);
         if (v.dir) setDir(v.dir);
+        if (typeof v.showMana === "boolean") setShowMana(v.showMana);
       }
     } catch {
       /* ignore */
@@ -49,12 +74,12 @@ export function DeckCardList({
     try {
       localStorage.setItem(
         "bds.cardview",
-        JSON.stringify({ groupBy, sortBy, dir })
+        JSON.stringify({ groupBy, sortBy, dir, showMana })
       );
     } catch {
       /* ignore */
     }
-  }, [groupBy, sortBy, dir]);
+  }, [groupBy, sortBy, dir, showMana]);
 
   const groups = useMemo(
     () => groupAndSort(cards, groupBy, sortBy, dir),
@@ -104,16 +129,30 @@ export function DeckCardList({
           <span className="text-sm leading-none">{dir === "asc" ? "↑" : "↓"}</span>
           {dir === "asc" ? "Asc" : "Desc"}
         </button>
+        <button
+          type="button"
+          onClick={() => setShowMana((v) => !v)}
+          className={`flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs font-medium ${
+            showMana
+              ? "border-brand-600 bg-brand-50 text-brand-700"
+              : "border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          }`}
+          title="Show each card's mana cost"
+        >
+          Mana cost
+        </button>
       </div>
 
       <div className="gap-x-8 xl:columns-2">
         {groups.map((g) => (
           <section key={g.key} className="mb-5 break-inside-avoid">
-            <div className="mb-1 flex items-center justify-between text-xs uppercase tracking-wide">
-              <span className="text-foreground font-bold">
-                {g.label} ({g.count})
+            <div className="mb-1 flex items-center justify-between gap-2 text-xs tracking-wide">
+              <span className="text-foreground flex items-center gap-1.5 font-bold uppercase">
+                <GroupIconView icon={g.icon} />
+                {g.label}
               </span>
-              <span className="text-muted-foreground font-semibold">
+              <span className="text-muted-foreground font-medium">
+                {g.count} {g.count === 1 ? "card" : "cards"} ·{" "}
                 {formatUsd(g.subtotal)}
               </span>
             </div>
@@ -125,12 +164,13 @@ export function DeckCardList({
                     deckId={deckId}
                     card={c}
                     commanderEligible={commanderEligible}
+                    showMana={showMana}
                   />
                 ) : (
                   <div
                     key={c.scryfall_id}
                     onMouseEnter={() => setPreview(c.name)}
-                    className="flex items-center gap-3 py-1.5 text-sm"
+                    className="flex items-center gap-3 py-[0.34rem] text-sm"
                   >
                     <span className="text-muted-foreground w-6 text-right tabular-nums">
                       {c.quantity}
@@ -142,6 +182,7 @@ export function DeckCardList({
                     >
                       {c.name}
                     </button>
+                    {showMana && <ManaCost cost={c.mana_cost} />}
                     <span className="text-muted-foreground w-16 text-right tabular-nums">
                       {formatUsd(c.line_cheapest)}
                     </span>

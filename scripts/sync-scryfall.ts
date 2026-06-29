@@ -62,9 +62,11 @@ interface ScryfallCard {
   layout?: string;
   oracle_text?: string;
   keywords?: string[];
+  mana_cost?: string;
   image_uris?: { normal?: string; small?: string; art_crop?: string };
   card_faces?: {
     oracle_text?: string;
+    mana_cost?: string;
     image_uris?: { normal?: string; small?: string; art_crop?: string };
   }[];
   prices?: { usd?: string | null; usd_foil?: string | null };
@@ -88,6 +90,7 @@ interface CardRow {
   layout: string | null;
   oracle_text: string | null;
   keywords: string[];
+  mana_cost: string | null;
   image_normal: string | null;
   image_small: string | null;
   image_art_crop: string | null;
@@ -119,6 +122,16 @@ function toRow(c: ScryfallCard): CardRow | null {
           .join("\n//\n")
       : null) ??
     null;
+  // Mana cost: single-faced on the card, multi-faced on the faces.
+  const manaCost =
+    c.mana_cost && c.mana_cost.length
+      ? c.mana_cost
+      : c.card_faces?.length
+        ? c.card_faces
+            .map((f) => f.mana_cost ?? "")
+            .filter(Boolean)
+            .join(" // ") || null
+        : null;
   return {
     scryfall_id: c.id,
     oracle_id: c.oracle_id,
@@ -132,6 +145,7 @@ function toRow(c: ScryfallCard): CardRow | null {
     layout: c.layout ?? null,
     oracle_text: oracleText,
     keywords: c.keywords ?? [],
+    mana_cost: manaCost,
     image_normal: img.normal ?? null,
     image_small: img.small ?? null,
     image_art_crop: img.art_crop ?? null,

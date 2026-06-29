@@ -88,9 +88,11 @@ This is a price-capped idea in the spirit of [Value Vintage](https://vvmtg.com),
 ),
 (
   'underrated-for-the-price-unexplained-absence',
-  $ex$Underrated for the Price: Unexplained Absence$ex$,
+  $ex$An Unexplained Absence From Budget Decks$ex$,
   $ex$A cheap white instant from Karlov Manor that punches above its price in any multiplayer game.$ex$,
-  $md$# Underrated for the Price: Unexplained Absence
+  $md$# An Unexplained Absence From Budget Decks
+
+This powerful card is underplayed, and budget brewers should fix that.
 
 Every set hides a card that competitive players pass over and budget brewers should be grabbing. From Murders at Karlov Manor, [[Unexplained Absence]] is one of those cards: a four-mana white instant that sells for pocket change and does real work in any multiplayer pod.
 
@@ -98,17 +100,27 @@ Every set hides a card that competitive players pass over and budget brewers sho
 
 ## One instant, the whole table
 
-The text reads: for {3}{W} at instant speed, exile up to one nonland permanent from each player. Note that it says each *player*, not each opponent, and that detail is what makes the card so flexible. In a four-player Commander game you can clear a threat from every opponent at once, or pick off a single problem permanent, all at the end of someone's turn or in response to a combo.
+Here is the card in full:
+
+> **Unexplained Absence** {3}{W} · Instant
+>
+> For each player, exile up to one target nonland permanent that player controls. For each permanent exiled this way, its controller cloaks the top card of their library. *(To cloak a card, put it onto the battlefield face down as a 2/2 creature with ward {2}. Turn it face up any time for its mana cost if it's a creature card.)*
+
+The detail that makes it shine is "for each player," not "each opponent." In a four-player Commander game you can answer a threat from every opponent with one card, or pick off a single problem permanent, all at instant speed: at the end of a turn, or in response to a combo.
 
 Exile matters too. There is no "return it" or "sacrifice" clause for opponents to value off of, so the permanents are simply gone. For a card that costs less than a booster pack, answering one permanent per player is a rate that premium removal rarely matches.
 
-## The defensive trick most people miss
+## The defensive line most people miss
 
-Because it can target your own permanents at instant speed, [[Unexplained Absence]] doubles as protection for your commander. Say an opponent tries to neutralize your general with an aura like [[Darksteel Mutation]] or [[Kenrith's Transformation]]. In response, you exile your own commander with Unexplained Absence and send it to the command zone. The aura loses its target and fizzles, and you recast your commander whenever you like. You spend four mana to dodge a lock that would otherwise have shut you out of the game.
+Because it can target a permanent controlled by each player, including you, [[Unexplained Absence]] is far more than a removal spell. Picture an opponent trying to neutralize your general with an aura like [[Darksteel Mutation]] or [[Kenrith's Transformation]]. In response, you cast Unexplained Absence, choose your own commander as one target, and send it to the command zone instead of exile. The aura loses its target and fizzles, and your commander is safe to recast.
 
-## The "catch" barely bites
+The beauty is that this is the same cast that also exiles the biggest nonland permanent each opponent controls. One four-mana instant rescues your commander and strips the whole table's best threats at once. Your opponents each cloak a card in the process, but even when one flips into a creature, it is rarely as scary as the bomb you just took off the board.
 
-The downside is the cloak clause: each player whose permanent you exiled cloaks the top card of their library, which makes a face-down 2/2 with ward {2}. So you do hand opponents a small body. In practice, trading a vanilla 2/2 for their best permanent is a deal you will take almost every time, and when you exile your own permanent defensively, you are the one who gets the free creature.
+## The cloak clause cuts both ways
+
+The cost is the cloak: each player whose permanent you exile puts the top card of their library onto the battlefield face down as a 2/2 with ward {2}. That body looks harmless, but if the cloaked card is a creature, its controller can turn it face up for its mana cost at any time. Since a typical deck is roughly a third creatures, on average about one of your opponents ends up with a real creature out of the deal, not just a vanilla 2/2. So cloak is a genuine downside, not a freebie, and it is worth weighing before you fire.
+
+You can also flip it to your advantage. Because the card you exile cloaks its own controller's library, exiling one of your small creatures cloaks the top of your deck. If your deck can scry, surveil, or otherwise see and arrange the top card, set up a bomb up there first, then exile a spare creature: you cloak that bomb as a 2/2 now and turn it face up for its cost later. Your removal spell quietly doubles as a way to deploy a threat.
 
 ## Where it shines
 
@@ -120,7 +132,7 @@ It will not win the game on its own, since it is an answer rather than a threat,
 
 ## The verdict
 
-[[Unexplained Absence]] is a textbook "underrated for the price" pickup: premium flexibility, multiplayer reach, a defensive mode that protects your commander, and a downside that rarely matters, all for the cost of a common.$md$,
+[[Unexplained Absence]] is a textbook underrated pickup: premium flexibility, multiplayer reach, a defensive line that protects your commander, and a cloak downside you can play around (or even exploit), all for the cost of a common.$md$,
   array['Unexplained Absence', 'Dismantling Wave', 'Swords to Plowshares', 'Darksteel Mutation', 'Kenrith''s Transformation'],
   now()
 )

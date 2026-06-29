@@ -8,6 +8,7 @@ import type { PricedCard } from "@/lib/types";
 import { BuyCardLink } from "@/components/decks/buy-card-link";
 import { usePreview } from "@/components/decks/deck-preview";
 import { CardRowMenu } from "@/components/decks/card-row-menu";
+import { ManaCost } from "@/components/cards/mana-cost";
 
 /** Quantity shown as a number; click it for a compact − [n] + stepper. */
 function QuantityControl({
@@ -94,11 +95,13 @@ export function CardRow({
   card,
   commanderEligible = false,
   isCommander = false,
+  showMana = false,
 }: {
   deckId: string;
   card: PricedCard;
   commanderEligible?: boolean;
   isCommander?: boolean;
+  showMana?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -113,7 +116,7 @@ export function CardRow({
   return (
     <div
       onMouseEnter={() => setPreview(card.name)}
-      className={`flex items-center gap-3 py-1.5 text-sm ${
+      className={`flex items-center gap-3 py-[0.34rem] text-sm ${
         pending ? "opacity-50" : ""
       }`}
     >
@@ -130,6 +133,8 @@ export function CardRow({
       >
         {card.name}
       </button>
+
+      {showMana && <ManaCost cost={card.mana_cost} />}
 
       {!card.counts_toward_budget && (
         <span
