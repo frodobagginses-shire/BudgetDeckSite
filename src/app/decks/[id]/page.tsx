@@ -231,13 +231,14 @@ export default async function DeckEditorPage({
 
   const { data: lockData } = await supabase
     .from("lock_ins")
-    .select("budget_price, bling_price, locked_at, kind")
+    .select("id, budget_price, bling_price, locked_at, kind")
     .eq("deck_id", id)
     .eq("kind", "creator")
     .order("locked_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   const lockIn = (lockData as LockIn | null) ?? null;
+  const lockHref = lockIn ? `/decks/${id}/locks/${lockIn.id}` : undefined;
 
   // Non-owners (and anonymous visitors) get the public read-only view.
   if (!isOwner) {
@@ -421,7 +422,7 @@ export default async function DeckEditorPage({
         )}
         <div className="flex basis-full flex-wrap items-center gap-3 pt-1">
           <LockInButton deckId={deck.id} />
-          <LockInBadge lockIn={lockIn} />
+          <LockInBadge lockIn={lockIn} href={lockHref} />
           <ForkButton deckId={deck.id} />
           <LikeButton
             deckId={deck.id}

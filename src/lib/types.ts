@@ -102,10 +102,30 @@ export interface BrowseDeck {
 }
 
 export interface LockIn {
+  id: string;
   budget_price: number;
   bling_price: number | null;
   locked_at: string;
   kind: "creator" | "visitor";
+}
+
+export interface LockSnapshotCard {
+  name: string;
+  qty: number;
+  board: Board;
+  commander: boolean;
+  counts_toward_budget: boolean;
+  line_cheapest: number | null;
+  line_bling: number | null;
+}
+
+export interface LockSnapshot {
+  name: string;
+  game_format: string;
+  threshold_amount: number | null;
+  priced: boolean;
+  totals: DeckTotals | null;
+  cards: LockSnapshotCard[];
 }
 
 export interface SearchCard {

@@ -138,7 +138,12 @@ export function DeckReadOnly({
           <span>{totals.card_count} cards</span>
         </div>
         <div className="flex basis-full items-center gap-3 pt-1">
-          {lockIn && <LockInBadge lockIn={lockIn} />}
+          {lockIn && (
+            <LockInBadge
+              lockIn={lockIn}
+              href={`/decks/${deck.id}/locks/${lockIn.id}`}
+            />
+          )}
           <LikeButton
             deckId={deck.id}
             liked={liked}

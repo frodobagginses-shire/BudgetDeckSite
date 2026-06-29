@@ -25,6 +25,7 @@ interface ProfileDeck {
 }
 
 interface LockRow {
+  id: string;
   budget_price: number;
   locked_at: string;
   deck_id: string;
@@ -81,7 +82,7 @@ export default async function ProfilePage({
 
   const { data: lockData } = await supabase
     .from("lock_ins")
-    .select("budget_price, locked_at, deck_id, decks(name, visibility)")
+    .select("id, budget_price, locked_at, deck_id, decks(name, visibility)")
     .eq("user_id", profile.id)
     .order("locked_at", { ascending: false });
   // Latest lock-in per deck (creator or visitor), most-recent first.
@@ -183,7 +184,7 @@ export default async function ProfilePage({
               return (
                 <li key={`${l.deck_id}-${l.locked_at}`}>
                   <Link
-                    href={`/decks/${l.deck_id}`}
+                    href={`/decks/${l.deck_id}/locks/${l.id}`}
                     className="hover:bg-muted flex items-center justify-between gap-3 rounded-md px-2 py-3"
                   >
                     <span className="font-medium">{deck.name}</span>

@@ -602,7 +602,8 @@ export async function removeCard(
   revalidatePath(`/decks/${deckId}`);
 }
 
-/** Creator Lock In: snapshot the deck's current prices with today's date. */
+/** Creator Lock In: snapshot the deck's current prices AND decklist with
+ * today's date, so the locked price is backed by the exact build at that time. */
 export async function lockInDeck(deckId: string) {
   const { supabase, user } = await requireUser();
   const { data: totalsData } = await supabase.rpc("deck_totals", {
@@ -610,6 +611,10 @@ export async function lockInDeck(deckId: string) {
   });
   const t = (totalsData as DeckTotals[] | null)?.[0];
   if (!t) return;
+  const { data: snapshot } = await supabase.rpc("build_lock_snapshot", {
+    p_deck_id: deckId,
+    p_priced: true,
+  });
   await supabase.from("lock_ins").insert({
     deck_id: deckId,
     user_id: user.id,
@@ -617,6 +622,7 @@ export async function lockInDeck(deckId: string) {
     bling_price: t.bling_price,
     currency: "USD",
     kind: "creator",
+    snapshot,
   });
   revalidatePath(`/decks/${deckId}`);
 }
@@ -666,6 +672,10 @@ export async function visitorLockIn(deckId: string) {
     .maybeSingle();
   if (existing) return; // already locked in
 
+  const { data: snapshot } = await supabase.rpc("build_lock_snapshot", {
+    p_deck_id: deckId,
+    p_priced: true,
+  });
   await supabase.from("lock_ins").insert({
     deck_id: deckId,
     user_id: user.id,
@@ -673,6 +683,7 @@ export async function visitorLockIn(deckId: string) {
     bling_price: t.bling_price,
     currency: "USD",
     kind: "visitor",
+    snapshot,
   });
   revalidatePath(`/decks/${deckId}`);
 }
