@@ -116,7 +116,7 @@ export function CardRow({
   return (
     <div
       onMouseEnter={() => setPreview(card.name)}
-      className={`flex items-center gap-3 py-[0.34rem] text-sm ${
+      className={`flex items-center gap-3 py-[0.3rem] text-sm ${
         pending ? "opacity-50" : ""
       }`}
     >

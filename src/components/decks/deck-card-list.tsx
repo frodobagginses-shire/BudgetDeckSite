@@ -170,7 +170,7 @@ export function DeckCardList({
                   <div
                     key={c.scryfall_id}
                     onMouseEnter={() => setPreview(c.name)}
-                    className="flex items-center gap-3 py-[0.34rem] text-sm"
+                    className="flex items-center gap-3 py-[0.3rem] text-sm"
                   >
                     <span className="text-muted-foreground w-6 text-right tabular-nums">
                       {c.quantity}
