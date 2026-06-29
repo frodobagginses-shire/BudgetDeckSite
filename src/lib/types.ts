@@ -117,4 +117,7 @@ export interface SearchCard {
   rarity: string | null;
   cheapest_price_usd: number | null;
   is_foil: boolean;
+  edhrec_rank?: number | null;
+  legal?: boolean;
+  in_identity?: boolean;
 }
