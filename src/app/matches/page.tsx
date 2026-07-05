@@ -7,7 +7,7 @@ import {
   type Match,
 } from "@/components/matches/match-controls";
 
-export const metadata = { title: "Matches — Budget Deck Site" };
+export const metadata = { title: "Matches | Budget Deck Site" };
 
 type UserRef = { handle: string | null; display_name: string | null } | null;
 const label = (u: UserRef) =>

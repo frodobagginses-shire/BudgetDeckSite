@@ -90,7 +90,7 @@ export function AddToPlaygroupButton({
   const add = () =>
     start(async () => {
       const r = await addToPlaygroup(groupId, userId);
-      setMsg(r.ok ? "Added ✓" : (r.message ?? "Failed."));
+      setMsg(r.ok ? "Added!" : (r.message ?? "Failed."));
       if (r.ok) router.refresh();
       setTimeout(() => setMsg(null), 2000);
     });

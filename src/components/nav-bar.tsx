@@ -30,7 +30,31 @@ export function NavBar({ account }: { account: { handle: string } | null }) {
           href="/"
           className="mr-3 flex items-center gap-2 font-bold tracking-tight"
         >
-          <span className="from-brand-400 to-brand-600 inline-block size-5 rounded-md bg-gradient-to-br" />
+          {/* Two fanned cards with a price tag corner */}
+          <svg
+            viewBox="0 0 24 24"
+            className="text-brand-600 size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="7.5" y="3.5" width="11" height="15" rx="1.5" transform="rotate(8 13 11)" />
+            <rect x="4" y="5" width="11" height="15" rx="1.5" fill="var(--background)" />
+            <text
+              x="9.5"
+              y="16"
+              textAnchor="middle"
+              fontSize="10"
+              fontWeight="700"
+              fill="currentColor"
+              stroke="none"
+            >
+              $
+            </text>
+          </svg>
           Budget Deck Site
         </Link>
         {LINKS.map((l) => (

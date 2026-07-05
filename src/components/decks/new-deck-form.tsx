@@ -62,9 +62,12 @@ export function NewDeckForm() {
           step="0.01"
           min="0"
           list="threshold-presets"
-          placeholder="15 — leave blank for no cap"
+          placeholder="15"
           className={field}
         />
+        <span className="text-muted-foreground text-xs">
+          Leave blank for no cap.
+        </span>
         <datalist id="threshold-presets">
           <option value="15" />
           <option value="20" />

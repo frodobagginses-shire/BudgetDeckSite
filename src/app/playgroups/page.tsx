@@ -7,7 +7,7 @@ import {
   RemoveMemberButton,
 } from "@/components/playgroups/playgroup-controls";
 
-export const metadata = { title: "Playgroups — Budget Deck Site" };
+export const metadata = { title: "Playgroups | Budget Deck Site" };
 
 type UserRef = { handle: string | null; display_name: string | null } | null;
 

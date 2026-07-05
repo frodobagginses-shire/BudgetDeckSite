@@ -29,6 +29,7 @@ export function DeckReadOnly({
   deck,
   ownerHandle,
   cards,
+  otherBoards = [],
   totals,
   lockIn,
   canLock,
@@ -46,6 +47,12 @@ export function DeckReadOnly({
   deck: Deck;
   ownerHandle: string | null;
   cards: PricedCard[];
+  otherBoards?: {
+    key: string;
+    label: string;
+    cards: PricedCard[];
+    counted: boolean;
+  }[];
   totals: DeckTotals;
   lockIn: LockIn | null;
   canLock: boolean;
@@ -112,7 +119,7 @@ export function DeckReadOnly({
             >
               {overBudget
                 ? `Over ${formatUsd(deck.threshold_amount)}`
-                : `Under ${formatUsd(deck.threshold_amount)} ✓`}
+                : `Under ${formatUsd(deck.threshold_amount)}`}
             </span>
           )}
         </div>
@@ -137,7 +144,7 @@ export function DeckReadOnly({
           <span>Your printings {formatUsd(totals.bling_price)}</span>
           <span>{totals.card_count} cards</span>
         </div>
-        <div className="flex basis-full items-center gap-3 pt-1">
+        <div className="flex basis-full flex-wrap items-center gap-3 pt-1">
           {lockIn && (
             <LockInBadge
               lockIn={lockIn}
@@ -207,6 +214,21 @@ export function DeckReadOnly({
 
       {/* Card list */}
       <DeckCardList cards={cards} variant="view" deckId={deck.id} />
+
+      {/* Sideboard / other boards */}
+      {otherBoards.map((b) => (
+        <section key={b.key}>
+          <div className="text-muted-foreground mb-1 text-xs font-semibold uppercase tracking-wide">
+            {b.label} ({b.cards.reduce((s, c) => s + c.quantity, 0)})
+            {b.counted && (
+              <span className="text-brand-700 ml-2 font-normal normal-case">
+                counts toward price
+              </span>
+            )}
+          </div>
+          <DeckCardList cards={b.cards} variant="view" deckId={deck.id} />
+        </section>
+      ))}
 
       {/* Primer / description */}
       {deck.description_md && (

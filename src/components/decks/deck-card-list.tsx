@@ -53,7 +53,7 @@ export function DeckCardList({
   const [sortBy, setSortBy] = useState<SortKey>("name");
   const [dir, setDir] = useState<SortDir>("asc");
   const [showMana, setShowMana] = useState(false);
-  const setPreview = usePreview();
+  const { hover, tap } = usePreview();
 
   // Remember the viewer's preference across decks/sessions.
   useEffect(() => {
@@ -169,7 +169,7 @@ export function DeckCardList({
                 ) : (
                   <div
                     key={c.scryfall_id}
-                    onMouseEnter={() => setPreview(c.name)}
+                    onMouseEnter={() => hover(c.name)}
                     className="flex items-center gap-3 py-[0.3rem] text-sm"
                   >
                     <span className="text-muted-foreground w-6 text-right tabular-nums">
@@ -177,7 +177,7 @@ export function DeckCardList({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setPreview(c.name)}
+                      onClick={() => tap(c.name)}
                       className="min-w-0 flex-1 truncate text-left hover:underline"
                     >
                       {c.name}

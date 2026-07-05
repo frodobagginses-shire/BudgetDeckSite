@@ -27,7 +27,7 @@ export function VisitorLockInButton({
       {pending
         ? "…"
         : locked
-          ? "Locked in ✓ — remove"
+          ? "Locked in (remove)"
           : "Lock In to my profile"}
     </Button>
   );

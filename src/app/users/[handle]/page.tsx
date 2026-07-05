@@ -11,7 +11,7 @@ export async function generateMetadata({
 }) {
   const { handle } = await params;
   return {
-    title: `@${handle} — Budget Deck Site`,
+    title: `@${handle} | Budget Deck Site`,
     description: `Budget Magic decks by @${handle}.`,
   };
 }
@@ -164,7 +164,7 @@ export default async function ProfilePage({
                         : ""}
                     </span>
                   </span>
-                  <span className="text-muted-foreground text-sm">View →</span>
+                  <span className="text-muted-foreground text-sm">View</span>
                 </Link>
               </li>
             ))}
@@ -189,7 +189,7 @@ export default async function ProfilePage({
                   >
                     <span className="font-medium">{deck.name}</span>
                     <span className="text-muted-foreground text-sm">
-                      🔒 Locked at {formatUsd(l.budget_price)} ·{" "}
+                      Locked at {formatUsd(l.budget_price)} ·{" "}
                       {fmtDate(l.locked_at)}
                     </span>
                   </Link>

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ArticleSummary } from "@/lib/types";
 
 export const metadata = {
-  title: "Articles — Budget Deck Site",
+  title: "Articles | Budget Deck Site",
   description:
     "Deep dives on underpriced, underplayed Magic cards and budget builds.",
 };
@@ -36,7 +36,7 @@ export default async function ArticlesPage() {
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold tracking-tight">Articles</h1>
           <p className="text-muted-foreground text-sm">
-            Underpriced cards and budget builds — what to play and why.
+            Underpriced cards, budget builds, and what to play with them.
           </p>
         </div>
         {isAuthor && (

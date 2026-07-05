@@ -18,7 +18,7 @@ export function CopyLinkButton() {
       }}
       className="border-border hover:bg-muted rounded-md border px-3 py-2 text-sm whitespace-nowrap"
     >
-      {copied ? "Link copied ✓" : "Share"}
+      {copied ? "Copied!" : "Share"}
     </button>
   );
 }

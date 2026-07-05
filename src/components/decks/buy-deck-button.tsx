@@ -71,7 +71,7 @@ export function BuyDeckButton({ cards }: { cards: BuyCard[] }) {
                 onClick={go}
                 className="bg-brand-600 rounded-md px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
               >
-                Copy list &amp; open Mana Pool →
+                Copy list &amp; open Mana Pool
               </button>
             </div>
           </div>

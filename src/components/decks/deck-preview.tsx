@@ -4,7 +4,6 @@ import {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,42 +16,23 @@ interface CardData {
   cheapest_price_usd: number | null;
 }
 
-const SetPreviewCtx = createContext<(name: string) => void>(() => {});
-const NameCtx = createContext<string | null>(null);
+// Shared across the sticky pane and the mobile lightbox so a card is only
+// fetched once per session.
+const cache = new Map<string, CardData | null>();
 
-/** Call setPreview(name) on hover/tap to drive the right-rail preview pane. */
-export function usePreview() {
-  return useContext(SetPreviewCtx);
-}
-
-export function PreviewProvider({
-  initialName,
-  children,
-}: {
-  initialName: string | null;
-  children: ReactNode;
-}) {
-  const [name, setName] = useState<string | null>(initialName);
-  return (
-    <SetPreviewCtx.Provider value={setName}>
-      <NameCtx.Provider value={name}>{children}</NameCtx.Provider>
-    </SetPreviewCtx.Provider>
+/** Fetch + cache a card's image/price by name. */
+function useCardData(name: string | null) {
+  const [data, setData] = useState<CardData | null>(
+    name ? (cache.get(name) ?? null) : null
   );
-}
-
-/** Sticky preview: image of the most recently hovered card + a persistent buy link. */
-export function DeckPreviewPane() {
-  const name = useContext(NameCtx);
-  const [data, setData] = useState<CardData | null>(null);
   const [loading, setLoading] = useState(false);
-  const cache = useRef<Map<string, CardData | null>>(new Map());
 
   useEffect(() => {
     if (!name) {
       setData(null);
       return;
     }
-    const cached = cache.current.get(name);
+    const cached = cache.get(name);
     if (cached !== undefined) {
       setData(cached);
       return;
@@ -63,7 +43,7 @@ export function DeckPreviewPane() {
       .then((r) => r.json())
       .then((j) => {
         const c = (j.card as CardData | null) ?? null;
-        cache.current.set(name, c);
+        cache.set(name, c);
         if (active) setData(c);
       })
       .catch(() => {})
@@ -74,6 +54,58 @@ export function DeckPreviewPane() {
       active = false;
     };
   }, [name]);
+
+  return { data, loading };
+}
+
+interface PreviewApi {
+  /** Hover (desktop): update the sticky pane only. */
+  hover: (name: string) => void;
+  /** Tap/click: update the pane, and on small screens open the lightbox. */
+  tap: (name: string) => void;
+}
+
+const PreviewCtx = createContext<PreviewApi>({ hover: () => {}, tap: () => {} });
+const NameCtx = createContext<string | null>(null);
+
+export function usePreview() {
+  return useContext(PreviewCtx);
+}
+
+export function PreviewProvider({
+  initialName,
+  children,
+}: {
+  initialName: string | null;
+  children: ReactNode;
+}) {
+  const [name, setName] = useState<string | null>(initialName);
+  const [modalName, setModalName] = useState<string | null>(null);
+
+  const api: PreviewApi = {
+    hover: (n) => setName(n),
+    tap: (n) => {
+      setName(n);
+      // Only pop the lightbox when the sticky pane isn't on screen (below lg).
+      const isDesktop =
+        typeof window !== "undefined" &&
+        window.matchMedia("(min-width: 1024px)").matches;
+      if (!isDesktop) setModalName(n);
+    },
+  };
+
+  return (
+    <PreviewCtx.Provider value={api}>
+      <NameCtx.Provider value={name}>{children}</NameCtx.Provider>
+      <CardLightbox name={modalName} onClose={() => setModalName(null)} />
+    </PreviewCtx.Provider>
+  );
+}
+
+/** Sticky preview (desktop): image of the most recently hovered card + buy link. */
+export function DeckPreviewPane() {
+  const name = useContext(NameCtx);
+  const { data, loading } = useCardData(name);
 
   return (
     <div className="sticky top-20 flex flex-col gap-3">
@@ -110,6 +142,92 @@ export function DeckPreviewPane() {
           </a>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Mobile/narrow lightbox: full card image on tap, with price + buy link. */
+function CardLightbox({
+  name,
+  onClose,
+}: {
+  name: string | null;
+  onClose: () => void;
+}) {
+  const { data, loading } = useCardData(name);
+
+  useEffect(() => {
+    if (!name) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [name, onClose]);
+
+  if (!name) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${name} preview`}
+    >
+      <div
+        className="flex w-full max-w-xs flex-col gap-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-muted/40 overflow-hidden rounded-xl">
+          {data?.image_normal ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={data.image_normal}
+              alt={data.name}
+              className="block w-full"
+            />
+          ) : (
+            <div className="text-muted-foreground flex aspect-[488/680] items-center justify-center px-4 text-center text-sm text-white/80">
+              {loading ? "Loading…" : name}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-white">
+              {data?.name ?? name}
+            </div>
+            {data?.cheapest_price_usd != null && (
+              <div className="text-xs text-white/70">
+                cheapest from {formatUsd(data.cheapest_price_usd)}
+              </div>
+            )}
+          </div>
+          <a
+            href={manapoolCardUrl(name)}
+            target="_blank"
+            rel="noopener noreferrer nofollow sponsored"
+            className="bg-brand-600 shrink-0 rounded-md px-3 py-2 text-center text-sm font-medium text-white hover:opacity-90"
+          >
+            Buy
+          </a>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="self-center rounded-md px-3 py-1.5 text-sm font-medium text-white/80 hover:text-white"
+        >
+          Close
+        </button>
+      </div>
     </div>
   );
 }

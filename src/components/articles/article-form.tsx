@@ -51,8 +51,8 @@ export function ArticleForm({
           placeholder="Write your article in Markdown…"
         />
         <span className="text-muted-foreground text-xs">
-          Tip: wrap card names in [[double brackets]] to auto-link them — e.g.
-          [[Lightning Bolt]] — for hover images and a buy button.
+          Tip: wrap card names in [[double brackets]], like [[Lightning
+          Bolt]], to get hover images and a buy button.
         </span>
       </div>
       <label className="flex flex-col gap-1 text-sm">

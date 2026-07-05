@@ -18,9 +18,9 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Budget Deck Site — build & lock in price-capped Magic decks",
+  title: "Budget Deck Site",
   description:
-    "A Magic: The Gathering deck builder focused on price-capped decks. Build to a budget, validate on the cheapest printing, and Lock In a timestamped price.",
+    "Deck builder for price-capped Magic formats. Prices come from the cheapest printing of each card, and a Lock In saves a dated snapshot of your list and its price.",
 };
 
 export default async function RootLayout({

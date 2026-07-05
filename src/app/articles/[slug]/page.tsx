@@ -17,9 +17,9 @@ export async function generateMetadata({
     .select("title, excerpt")
     .eq("slug", slug)
     .maybeSingle();
-  if (!data) return { title: "Article — Budget Deck Site" };
+  if (!data) return { title: "Article | Budget Deck Site" };
   return {
-    title: `${data.title} — Budget Deck Site`,
+    title: `${data.title} | Budget Deck Site`,
     description: data.excerpt ?? undefined,
     openGraph: { title: data.title as string },
   };
@@ -68,7 +68,7 @@ export default async function ArticlePage({
         href="/articles"
         className="text-muted-foreground hover:text-foreground text-sm"
       >
-        ← All articles
+        All articles
       </Link>
 
       <article className="flex flex-col gap-2">

@@ -1,6 +1,18 @@
 export type Visibility = "public" | "unlisted" | "private";
 export type Board = "main" | "side" | "considering" | "maybe";
 
+/** Boards a user can toggle in or out of the deck's price ('main' always counts). */
+export const OPTIONAL_PRICED_BOARDS: { key: Board; label: string }[] = [
+  { key: "side", label: "Sideboard" },
+  { key: "considering", label: "Considering" },
+  { key: "maybe", label: "Maybe" },
+];
+
+/** Default priced boards for a format: sideboard counts everywhere except commander. */
+export function defaultPricedBoards(format: string): Board[] {
+  return format === "commander" ? ["main"] : ["main", "side"];
+}
+
 export const GAME_FORMATS = [
   "commander",
   "vintage",
@@ -29,6 +41,7 @@ export interface Deck {
   banner_pos_y: number;
   archetypes: string[];
   record_public: boolean;
+  priced_boards: Board[];
   created_at: string;
   updated_at: string;
 }

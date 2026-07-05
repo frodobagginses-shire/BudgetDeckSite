@@ -90,7 +90,7 @@ export function DeckRecordCard({
               Public record
             </label>
             <Link href="/matches" className="text-brand-600 hover:underline">
-              Your matches →
+              Your matches
             </Link>
           </div>
         )}

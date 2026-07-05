@@ -42,16 +42,17 @@ export async function generateMetadata({
     .select("name, game_format")
     .eq("id", id)
     .maybeSingle();
-  if (!data) return { title: "Deck — Budget Deck Site" };
+  if (!data) return { title: "Deck | Budget Deck Site" };
   return {
-    title: `${data.name} — Budget Deck Site`,
-    description: `A ${data.game_format} deck on Budget Deck Site — build to a budget, validate on the cheapest printing.`,
-    openGraph: { title: `${data.name} — Budget Deck Site` },
+    title: `${data.name} | Budget Deck Site`,
+    description: `A budget ${data.game_format} deck on Budget Deck Site.`,
+    openGraph: { title: `${data.name} | Budget Deck Site` },
   };
 }
 import { formatUsd } from "@/lib/format";
 import {
   GAME_FORMATS,
+  OPTIONAL_PRICED_BOARDS,
   type Board,
   type Deck,
   type DeckTotals,
@@ -151,6 +152,7 @@ export default async function DeckEditorPage({
     a.name.localeCompare(b.name)
   );
   const cards = allCards.filter((c) => c.board === "main");
+  const pricedBoards: Board[] = (deck.priced_boards as Board[]) ?? ["main"];
   const otherBoards: { key: Board; label: string }[] = [
     { key: "considering", label: "Considering" },
     { key: "side", label: "Sideboard" },
@@ -264,11 +266,20 @@ export default async function DeckEditorPage({
       visitorLocked = !!vl;
     }
 
+    const visitorBoards = otherBoards
+      .map((b) => ({
+        ...b,
+        cards: allCards.filter((c) => c.board === b.key),
+        counted: pricedBoards.includes(b.key),
+      }))
+      .filter((b) => b.cards.length > 0);
+
     return (
       <DeckReadOnly
         deck={deck}
         ownerHandle={(owner?.handle as string) ?? null}
         cards={cards}
+        otherBoards={visitorBoards}
         totals={totals}
         lockIn={lockIn}
         canLock={!!user}
@@ -376,6 +387,23 @@ export default async function DeckEditorPage({
             </button>
           </div>
         </div>
+        <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <legend className="sr-only">Boards counted in the price</legend>
+          <span className="text-muted-foreground text-xs">
+            Count toward price (besides mainboard):
+          </span>
+          {OPTIONAL_PRICED_BOARDS.map((b) => (
+            <label key={b.key} className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                name={`priced_${b.key}`}
+                defaultChecked={pricedBoards.includes(b.key)}
+                className="accent-brand-600 size-3.5"
+              />
+              {b.label}
+            </label>
+          ))}
+        </fieldset>
       </form>
 
       <DeckLineage parent={parent} forkCount={forkCount} />
@@ -406,7 +434,7 @@ export default async function DeckEditorPage({
           >
             {overBudget
               ? `Over by ${formatUsd(totals.budget_price - deck.threshold_amount)}`
-              : `Under ${formatUsd(deck.threshold_amount)} ✓`}
+              : `Under ${formatUsd(deck.threshold_amount)}`}
           </span>
         )}
         <div className="text-muted-foreground ml-auto flex gap-6 text-sm">
@@ -514,7 +542,7 @@ export default async function DeckEditorPage({
       {/* Card list */}
       {cards.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          No cards yet — search above to add some.
+          No cards yet. Search above to add some.
         </p>
       ) : (
         <DeckCardList
@@ -533,6 +561,11 @@ export default async function DeckEditorPage({
           <section key={key}>
             <div className="text-muted-foreground mb-1 text-xs font-semibold uppercase tracking-wide">
               {label} ({list.reduce((s, c) => s + c.quantity, 0)})
+              {pricedBoards.includes(key) && (
+                <span className="text-brand-700 ml-2 font-normal normal-case">
+                  counts toward price
+                </span>
+              )}
             </div>
             <div className="divide-border divide-y">
               {list.map((c) => (

@@ -14,7 +14,7 @@ const SORTS = [
 const LIMIT = 24;
 
 export const metadata = {
-  title: "Browse budget decks — Budget Deck Site",
+  title: "Browse budget decks | Budget Deck Site",
   description:
     "Find Magic decks under a price cap. Filter by format and max budget, sort by price.",
 };
@@ -173,7 +173,7 @@ export default async function BrowsePage({
             href={makeUrl({ page: page - 1 === 1 ? undefined : page - 1 })}
             className="text-muted-foreground hover:text-foreground"
           >
-            ← Prev
+            Previous
           </Link>
         ) : (
           <span />
@@ -183,7 +183,7 @@ export default async function BrowsePage({
             href={makeUrl({ page: page + 1 })}
             className="text-muted-foreground hover:text-foreground"
           >
-            Next →
+            Next
           </Link>
         ) : (
           <span />

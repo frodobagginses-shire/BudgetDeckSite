@@ -304,7 +304,7 @@ export function MatchCard({
       {match.status === "open" && match.creator_id === me && (
         <div className="flex flex-col gap-2 border-t border-border pt-3">
           <span className="text-muted-foreground text-xs">
-            Assign decks (optional — players can change theirs until they accept)
+            Assign decks (optional; players can change theirs until they accept)
           </span>
           {match.players
             .filter((p) => p.user_id !== me)
@@ -438,7 +438,7 @@ export function MatchCard({
                     p.snapshot ? (
                       <div key={p.user_id}>
                         <div className="text-xs font-semibold">
-                          {p.name} — {p.snapshot.name ?? p.deck_name ?? "deck"}
+                          {p.name}: {p.snapshot.name ?? p.deck_name ?? "deck"}
                         </div>
                         <ul className="text-muted-foreground mt-0.5 text-xs sm:columns-2">
                           {p.snapshot.cards.map((c, i) => (

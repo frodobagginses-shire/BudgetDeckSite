@@ -105,7 +105,7 @@ export function CardRow({
 }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
-  const setPreview = usePreview();
+  const { hover, tap } = usePreview();
 
   const setQty = (n: number) =>
     startTransition(async () => {
@@ -115,7 +115,7 @@ export function CardRow({
 
   return (
     <div
-      onMouseEnter={() => setPreview(card.name)}
+      onMouseEnter={() => hover(card.name)}
       className={`flex items-center gap-3 py-[0.3rem] text-sm ${
         pending ? "opacity-50" : ""
       }`}
@@ -128,7 +128,7 @@ export function CardRow({
 
       <button
         type="button"
-        onClick={() => setPreview(card.name)}
+        onClick={() => tap(card.name)}
         className="min-w-0 flex-1 truncate text-left hover:underline"
       >
         {card.name}

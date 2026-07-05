@@ -5,7 +5,7 @@ import { formatUsd } from "@/lib/format";
 import type { LockSnapshot, LockSnapshotCard } from "@/lib/types";
 
 export const metadata = {
-  title: "Price Lock snapshot — Budget Deck Site",
+  title: "Price Lock snapshot | Budget Deck Site",
 };
 
 const BOARD_LABEL: Record<string, string> = {
@@ -83,7 +83,7 @@ export default async function LockSnapshotPage({
         href={`/decks/${id}`}
         className="text-muted-foreground hover:text-foreground text-sm"
       >
-        ← Current deck
+        Back to current deck
       </Link>
 
       <header className="flex flex-col gap-2">
@@ -116,7 +116,7 @@ export default async function LockSnapshotPage({
         <div>
           <div className="text-muted-foreground text-xs">Locked budget price</div>
           <div className="text-2xl font-bold">
-            🔒 {formatUsd(lock.budget_price)}
+            {formatUsd(lock.budget_price)}
           </div>
         </div>
         <div className="text-muted-foreground text-sm">
@@ -134,8 +134,8 @@ export default async function LockSnapshotPage({
         {snap && !snap.priced && (
           <>
             {" "}
-            Card prices aren&apos;t shown for this lock — the budget figure was
-            recorded directly.
+            Card prices aren&apos;t shown for this lock because the budget
+            figure was recorded directly.
           </>
         )}
       </p>

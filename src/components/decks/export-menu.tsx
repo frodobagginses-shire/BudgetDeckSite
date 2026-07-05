@@ -49,14 +49,14 @@ export function ExportMenu({ cards }: { cards: ExportCard[] }) {
             onClick={() => copy("text", textList)}
             className="hover:bg-muted block w-full px-3 py-2 text-left text-sm"
           >
-            {copied === "text" ? "Copied ✓" : "Copy as text"}
+            {copied === "text" ? "Copied!" : "Copy as text"}
           </button>
           <button
             type="button"
             onClick={() => copy("arena", arenaList)}
             className="hover:bg-muted block w-full px-3 py-2 text-left text-sm"
           >
-            {copied === "arena" ? "Copied ✓" : "Copy for Arena"}
+            {copied === "arena" ? "Copied!" : "Copy for Arena"}
           </button>
         </div>
       )}

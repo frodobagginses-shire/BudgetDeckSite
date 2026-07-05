@@ -52,7 +52,7 @@ export default async function DecksPage() {
                     · {d.visibility}
                   </span>
                 </span>
-                <span className="text-muted-foreground text-sm">Edit →</span>
+                <span className="text-muted-foreground text-sm">Edit</span>
               </Link>
             </li>
           ))}

@@ -3,7 +3,12 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Board, DeckTotals } from "@/lib/types";
+import {
+  defaultPricedBoards,
+  OPTIONAL_PRICED_BOARDS,
+  type Board,
+  type DeckTotals,
+} from "@/lib/types";
 import { ARCHETYPE_SET, MAX_ARCHETYPES } from "@/lib/archetypes";
 import {
   canBeCommander,
@@ -40,6 +45,7 @@ export async function createDeck(formData: FormData) {
       game_format,
       threshold_amount,
       visibility,
+      priced_boards: defaultPricedBoards(game_format),
     })
     .select("id")
     .single();
@@ -96,9 +102,16 @@ export async function updateDeckMeta(deckId: string, formData: FormData) {
     thRaw && String(thRaw).trim() !== "" ? Number(thRaw) : null;
   const visibility = String(formData.get("visibility") || "private");
 
+  // Which boards count toward the price. Main always does; the rest come from
+  // the settings checkboxes.
+  const priced_boards: Board[] = ["main"];
+  for (const b of OPTIONAL_PRICED_BOARDS) {
+    if (formData.get(`priced_${b.key}`)) priced_boards.push(b.key);
+  }
+
   const { error } = await supabase
     .from("decks")
-    .update({ name, game_format, threshold_amount, visibility })
+    .update({ name, game_format, threshold_amount, visibility, priced_boards })
     .eq("id", deckId);
   if (error) throw new Error(error.message);
   revalidatePath(`/decks/${deckId}`);
@@ -196,7 +209,9 @@ export async function forkDeck(deckId: string, linkBack: boolean) {
 
   const { data: src } = await supabase
     .from("decks")
-    .select("name, game_format, threshold_amount, threshold_currency, description_md")
+    .select(
+      "name, game_format, threshold_amount, threshold_currency, description_md, priced_boards"
+    )
     .eq("id", deckId)
     .maybeSingle();
   if (!src) return;
@@ -209,6 +224,7 @@ export async function forkDeck(deckId: string, linkBack: boolean) {
       game_format: src.game_format,
       threshold_amount: src.threshold_amount,
       threshold_currency: src.threshold_currency ?? "USD",
+      priced_boards: src.priced_boards ?? defaultPricedBoards(src.game_format),
       visibility: "private",
       description_md: src.description_md,
       parent_deck_id: linkBack ? deckId : null,

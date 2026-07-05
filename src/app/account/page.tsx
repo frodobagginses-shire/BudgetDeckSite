@@ -41,7 +41,7 @@ export default async function AccountPage() {
             href={`/users/${profile.handle}`}
             className="text-muted-foreground hover:text-foreground text-sm"
           >
-            View public profile →
+            View public profile
           </Link>
         )}
       </div>
