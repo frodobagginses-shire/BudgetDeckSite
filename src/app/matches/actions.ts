@@ -77,6 +77,17 @@ export async function joinMatch(
   return { ok: true };
 }
 
+/** Host explicitly starts an open match (2..format-max accepted, no pending
+ * invites). Covers 2-player pods and code-join lobbies that shouldn't
+ * auto-activate. */
+export async function startMatch(matchId: string): Promise<Result> {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.rpc("start_match", { p_match: matchId });
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/matches");
+  return { ok: true };
+}
+
 export async function submitResult(
   matchId: string,
   winnerId: string | null,

@@ -5,7 +5,9 @@ import {
   CreateJoinPlaygroup,
   AddToPlaygroupButton,
   RemoveMemberButton,
+  PlaygroupFormatControl,
 } from "@/components/playgroups/playgroup-controls";
+import { formatMaxPlayers, isMultiplayerFormat } from "@/lib/types";
 
 export const metadata = { title: "Playgroups | Budget Deck Site" };
 
@@ -20,13 +22,14 @@ export default async function PlaygroupsPage() {
 
   const { data: groupRows } = await supabase
     .from("playgroups")
-    .select("id, name, owner_id, invite_code")
+    .select("id, name, owner_id, invite_code, game_format")
     .order("created_at", { ascending: true });
   const groups = (groupRows ?? []) as {
     id: string;
     name: string;
     owner_id: string;
     invite_code: string;
+    game_format: string;
   }[];
 
   const groupIds = groups.map((g) => g.id);
@@ -71,8 +74,8 @@ export default async function PlaygroupsPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">Playgroups</h1>
         <p className="text-muted-foreground text-sm">
-          Group up with the people you play with. A playgroup of four can run a
-          match.
+          Group up with the people you play with. Pick a format first: 1-vs-1
+          formats pair you with one opponent, Commander pods seat 2–5.
         </p>
       </div>
 
@@ -92,23 +95,43 @@ export default async function PlaygroupsPage() {
           groups.map((g) => {
             const members = membersByGroup.get(g.id) ?? [];
             const isOwner = g.owner_id === user.id;
+            const max = formatMaxPlayers(g.game_format);
+            const multi = isMultiplayerFormat(g.game_format);
+            const podNote =
+              multi && members.length === 2
+                ? "Duel-sized pod — Commander plays best with 3–4."
+                : multi && members.length === 5
+                  ? "Full house — five-player pods can drag; 3–4 is the sweet spot."
+                  : null;
             return (
               <div
                 key={g.id}
                 className="border-border bg-card rounded-xl border p-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="font-semibold">{g.name}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{g.name}</span>
+                    <PlaygroupFormatControl
+                      groupId={g.id}
+                      format={g.game_format}
+                      isOwner={isOwner}
+                    />
+                  </div>
                   <div className="text-muted-foreground text-xs">
                     Invite code:{" "}
                     <span className="bg-muted rounded px-1.5 py-0.5 font-mono">
                       {g.invite_code}
                     </span>
                     <span className="ml-2">
-                      {members.length}/4 {isOwner ? "· you own this" : ""}
+                      {members.length}/{max} {isOwner ? "· you own this" : ""}
                     </span>
                   </div>
                 </div>
+                {podNote && (
+                  <p className="text-muted-foreground mt-2 text-xs">
+                    ⚠️ {podNote}
+                  </p>
+                )}
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {members.map((m) => (
                     <li

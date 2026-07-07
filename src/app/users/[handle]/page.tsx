@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatUsd } from "@/lib/format";
 import { FollowButton } from "@/components/users/follow-button";
+import { CardAvatar } from "@/components/users/card-avatar";
 
 export async function generateMetadata({
   params,
@@ -42,10 +43,22 @@ export default async function ProfilePage({
 
   const { data: profile } = await supabase
     .from("users")
-    .select("id, handle, display_name, created_at")
+    .select(
+      "id, handle, display_name, created_at, avatar_card_id, avatar_x, avatar_y, avatar_zoom"
+    )
     .eq("handle", handle)
     .maybeSingle();
   if (!profile) notFound();
+
+  let avatarArt: string | null = null;
+  if (profile.avatar_card_id) {
+    const { data: art } = await supabase
+      .from("cards")
+      .select("image_art_crop")
+      .eq("scryfall_id", profile.avatar_card_id)
+      .maybeSingle();
+    avatarArt = art?.image_art_crop ?? null;
+  }
 
   const {
     data: { user },
@@ -109,9 +122,19 @@ export default async function ProfilePage({
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10">
       <header className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">
-            @{profile.handle}
-          </h1>
+          <div className="flex items-center gap-4">
+            <CardAvatar
+              artUrl={avatarArt}
+              x={Number(profile.avatar_x ?? 50)}
+              y={Number(profile.avatar_y ?? 50)}
+              zoom={Number(profile.avatar_zoom ?? 1)}
+              fallback={profile.handle}
+              className="size-16"
+            />
+            <h1 className="text-3xl font-bold tracking-tight">
+              @{profile.handle}
+            </h1>
+          </div>
           {user && !isOwnProfile && (
             <FollowButton userId={profile.id} following={isFollowing} />
           )}

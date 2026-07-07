@@ -7,9 +7,11 @@ import {
   joinMatch,
   respondInvite,
   setMatchDeck,
+  startMatch,
   submitResult,
   respondResult,
 } from "@/app/matches/actions";
+import { formatMaxPlayers, isMultiplayerFormat } from "@/lib/types";
 
 export type Deck = { id: string; name: string; locked_price: number };
 export type SnapshotCard = {
@@ -41,6 +43,7 @@ export type Match = {
   join_code: string;
   creator_id: string;
   price_limit: number | null;
+  game_format: string;
   players: Player[];
   pending: Pending | null;
 };
@@ -67,7 +70,12 @@ function useAct() {
 export function CreateMatchForm({
   playgroups,
 }: {
-  playgroups: { id: string; name: string; members: { id: string; name: string }[] }[];
+  playgroups: {
+    id: string;
+    name: string;
+    game_format: string;
+    members: { id: string; name: string }[];
+  }[];
 }) {
   const [gid, setGid] = useState(playgroups[0]?.id ?? "");
   const [invited, setInvited] = useState<string[]>([]);
@@ -82,9 +90,23 @@ export function CreateMatchForm({
       </p>
     );
 
+  const fmt = group?.game_format ?? "commander";
+  const max = formatMaxPlayers(fmt);
+  const total = invited.length + 1;
+  const podHint =
+    isMultiplayerFormat(fmt) && total === 2
+      ? "Two-player pod — you can start it, but Commander plays best with 3–4."
+      : isMultiplayerFormat(fmt) && total === 5
+        ? "Five players is the max — expect longer turns."
+        : null;
+
   const toggle = (id: string) =>
     setInvited((v) =>
-      v.includes(id) ? v.filter((x) => x !== id) : v.length < 3 ? [...v, id] : v
+      v.includes(id)
+        ? v.filter((x) => x !== id)
+        : v.length < max - 1
+          ? [...v, id]
+          : v
     );
 
   return (
@@ -95,11 +117,11 @@ export function CreateMatchForm({
           setGid(e.target.value);
           setInvited([]);
         }}
-        className={field}
+        className={`${field} capitalize`}
       >
         {playgroups.map((g) => (
           <option key={g.id} value={g.id}>
-            {g.name}
+            {g.name} ({g.game_format})
           </option>
         ))}
       </select>
@@ -134,6 +156,9 @@ export function CreateMatchForm({
           players bring decks locked in at or below this
         </span>
       </label>
+      {podHint && (
+        <p className="text-muted-foreground text-xs">⚠️ {podHint}</p>
+      )}
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -143,7 +168,7 @@ export function CreateMatchForm({
           }
           className={primary}
         >
-          Create match ({invited.length + 1}/4)
+          Create match ({total}/{max})
         </button>
         {msg && <span className="text-destructive text-xs">{msg}</span>}
       </div>
@@ -234,7 +259,10 @@ export function MatchCard({
     <div className="border-border bg-card flex flex-col gap-3 rounded-xl border p-4">
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground text-xs">
-          {accepted.length} in · code{" "}
+          <span className="bg-muted mr-2 rounded-full px-2 py-0.5 capitalize">
+            {match.game_format}
+          </span>
+          {accepted.length}/{formatMaxPlayers(match.game_format)} in · code{" "}
           <span className="bg-muted rounded px-1.5 py-0.5 font-mono">
             {match.join_code}
           </span>
@@ -299,6 +327,29 @@ export function MatchCard({
           <span className="text-muted-foreground text-xs">waiting for players…</span>
         </div>
       )}
+
+      {/* OPEN + host: start the match once everyone has responded */}
+      {match.status === "open" &&
+        match.creator_id === me &&
+        !match.players.some((p) => p.status === "invited") &&
+        accepted.length >= 2 &&
+        accepted.length <= formatMaxPlayers(match.game_format) && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => run(() => startMatch(match.id))}
+              className={primary}
+            >
+              Start match ({accepted.length} players)
+            </button>
+            {isMultiplayerFormat(match.game_format) && accepted.length === 2 && (
+              <span className="text-muted-foreground text-xs">
+                ⚠️ two-player pod — waiting for more? Share the code instead.
+              </span>
+            )}
+          </div>
+        )}
 
       {/* OPEN + host: pre-assign decks to other players */}
       {match.status === "open" && match.creator_id === me && (

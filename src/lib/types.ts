@@ -25,6 +25,14 @@ export const GAME_FORMATS = [
 ] as const;
 export type GameFormat = (typeof GAME_FORMATS)[number];
 
+/** Formats where a game seats more than two players. */
+export const MULTIPLAYER_FORMATS: readonly string[] = ["commander", "casual"];
+export const isMultiplayerFormat = (f: string) =>
+  MULTIPLAYER_FORMATS.includes(f);
+/** Max seats in a playgroup/match for a format (min is always 2). */
+export const formatMaxPlayers = (f: string) =>
+  isMultiplayerFormat(f) ? 5 : 2;
+
 export interface Deck {
   id: string;
   owner_id: string;

@@ -6,6 +6,7 @@ import {
   MatchCard,
   type Match,
 } from "@/components/matches/match-controls";
+import { GAME_FORMATS } from "@/lib/types";
 
 export const metadata = { title: "Matches | Budget Deck Site" };
 
@@ -33,7 +34,9 @@ export default async function MatchesPage() {
   if (matchIds.length) {
     const { data: matchRows } = await supabase
       .from("matches")
-      .select("id, status, join_code, creator_id, price_limit, created_at")
+      .select(
+        "id, status, join_code, creator_id, price_limit, game_format, created_at"
+      )
       .in("id", matchIds)
       .order("created_at", { ascending: false });
 
@@ -97,6 +100,7 @@ export default async function MatchesPage() {
       join_code: string;
       creator_id: string;
       price_limit: number | null;
+      game_format: string;
     }[]) {
       const results = (resultRows ?? []).filter((r) => r.match_id === m.id);
       const decisive =
@@ -109,6 +113,7 @@ export default async function MatchesPage() {
         join_code: m.join_code,
         creator_id: m.creator_id,
         price_limit: m.price_limit ?? null,
+        game_format: m.game_format ?? "commander",
         players: playersByMatch.get(m.id) ?? [],
         pending: decisive
           ? {
@@ -162,8 +167,12 @@ export default async function MatchesPage() {
 
   const { data: groupRows } = await supabase
     .from("playgroups")
-    .select("id, name");
-  const groups = (groupRows ?? []) as { id: string; name: string }[];
+    .select("id, name, game_format");
+  const groups = (groupRows ?? []) as {
+    id: string;
+    name: string;
+    game_format: string;
+  }[];
   const groupIds = groups.map((g) => g.id);
   const membersByGroup = new Map<string, { id: string; name: string }[]>();
   if (groupIds.length) {
@@ -185,6 +194,7 @@ export default async function MatchesPage() {
   const playgroups = groups.map((g) => ({
     id: g.id,
     name: g.name,
+    game_format: g.game_format ?? "commander",
     members: membersByGroup.get(g.id) ?? [],
   }));
 
@@ -223,33 +233,14 @@ export default async function MatchesPage() {
   const active = matches.filter((m) => m.status === "active");
   const completed = matches.filter((m) => m.status === "completed");
 
-  const Section = ({
-    title,
-    list,
-    empty,
-  }: {
-    title: string;
-    list: Match[];
-    empty: string;
-  }) => (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
-        {title}
-      </h2>
-      {list.length === 0 ? (
-        <p className="text-muted-foreground text-sm">{empty}</p>
-      ) : (
-        list.map((m) => (
-          <MatchCard
-            key={m.id}
-            match={m}
-            me={user.id}
-            myDecks={lockedDecks}
-            assignable={assignableByMatch[m.id] ?? {}}
-          />
-        ))
-      )}
-    </section>
+  const renderCard = (m: Match) => (
+    <MatchCard
+      key={m.id}
+      match={m}
+      me={user.id}
+      myDecks={lockedDecks}
+      assignable={assignableByMatch[m.id] ?? {}}
+    />
   );
 
   return (
@@ -257,7 +248,8 @@ export default async function MatchesPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">Match tracking</h1>
         <p className="text-muted-foreground text-sm">
-          Run a four-player match with your playgroup and record the results.
+          Run a match with your playgroup and record the results — 1-vs-1 for
+          duel formats, 2–5 player pods for Commander.
         </p>
       </div>
 
@@ -274,13 +266,89 @@ export default async function MatchesPage() {
         title="Invitations"
         list={invitations}
         empty="No open invitations."
+        renderCard={renderCard}
       />
-      <Section title="Active matches" list={active} empty="No active matches." />
-      <Section
+      <GroupedSection
+        title="Active matches"
+        list={active}
+        empty="No active matches."
+        renderCard={renderCard}
+      />
+      <GroupedSection
         title="Completed matches"
         list={completed}
         empty="No completed matches yet."
+        renderCard={renderCard}
       />
     </main>
+  );
+}
+
+type SectionProps = {
+  title: string;
+  list: Match[];
+  empty: string;
+  renderCard: (m: Match) => React.ReactNode;
+};
+
+function Section({ title, list, empty, renderCard }: SectionProps) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
+        {title}
+      </h2>
+      {list.length === 0 ? (
+        <p className="text-muted-foreground text-sm">{empty}</p>
+      ) : (
+        list.map(renderCard)
+      )}
+    </section>
+  );
+}
+
+/** Active & Completed: format headers, price-bracket subheaders (mirrors the
+ * Browse landing). Invitations stay a flat, most-recent-first list. */
+function GroupedSection({ title, list, empty, renderCard }: SectionProps) {
+  const formats = [
+    ...GAME_FORMATS.filter((f) => list.some((m) => m.game_format === f)),
+    ...[...new Set(list.map((m) => m.game_format))].filter(
+      (f) => !(GAME_FORMATS as readonly string[]).includes(f)
+    ),
+  ];
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
+        {title}
+      </h2>
+      {list.length === 0 ? (
+        <p className="text-muted-foreground text-sm">{empty}</p>
+      ) : (
+        formats.map((f) => {
+          const inFormat = list.filter((m) => m.game_format === f);
+          const brackets = [...new Set(inFormat.map((m) => m.price_limit))].sort(
+            (a, b) => {
+              if (a == null) return 1;
+              if (b == null) return -1;
+              return a - b;
+            }
+          );
+          return (
+            <div key={f} className="flex flex-col gap-3">
+              <h3 className="border-border border-b pb-1 text-base font-semibold capitalize">
+                {f}
+              </h3>
+              {brackets.map((cap) => (
+                <div key={cap ?? "none"} className="flex flex-col gap-2">
+                  <h4 className="text-muted-foreground text-xs font-medium">
+                    {cap != null ? `$${cap} bracket` : "No price limit"}
+                  </h4>
+                  {inFormat.filter((m) => m.price_limit === cap).map(renderCard)}
+                </div>
+              ))}
+            </div>
+          );
+        })
+      )}
+    </section>
   );
 }
