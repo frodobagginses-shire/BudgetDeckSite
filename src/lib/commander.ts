@@ -40,7 +40,8 @@ function genericPartner(c: RulesCard): boolean {
 }
 
 function partnerWithName(c: RulesCard): string | null {
-  const m = lc(c.oracle_text).match(/partner with ([^\n.(]+)/);
+  // Match against the original text so the returned name keeps its casing.
+  const m = (c.oracle_text ?? "").match(/partner with ([^\n.(]+)/i);
   return m ? m[1].trim() : null;
 }
 
@@ -55,6 +56,32 @@ function doctorsCompanion(c: RulesCard): boolean {
 }
 function isDoctor(c: RulesCard): boolean {
   return lc(c.type_line).includes("time lord doctor");
+}
+
+export type PartnerKind =
+  | "partner"
+  | "partnerWith"
+  | "friendsForever"
+  | "chooseBackground"
+  | "doctorsCompanion";
+
+export interface PartnerSpec {
+  kind: PartnerKind;
+  /** Exact card name for "Partner with …"; null for the generic mechanics. */
+  partnerName: string | null;
+}
+
+/** If this card supports a second commander, describe how; else null. */
+export function partnerSpec(c: RulesCard): PartnerSpec | null {
+  const name = partnerWithName(c);
+  if (name) return { kind: "partnerWith", partnerName: name };
+  if (genericPartner(c)) return { kind: "partner", partnerName: null };
+  if (friendsForever(c)) return { kind: "friendsForever", partnerName: null };
+  if (chooseBackground(c))
+    return { kind: "chooseBackground", partnerName: null };
+  if (doctorsCompanion(c))
+    return { kind: "doctorsCompanion", partnerName: null };
+  return null;
 }
 
 /** May these two cards legally be a deck's two commanders together? */

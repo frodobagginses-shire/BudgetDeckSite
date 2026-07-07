@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parseCardQuery } from "@/lib/search/parse-query";
+import {
+  canBeCommander,
+  isBackground,
+  partnersAllowed,
+  type RulesCard,
+} from "@/lib/commander";
 
 /**
  * GET /api/cards/search?q=lightning bolt&limit=20
@@ -58,6 +64,24 @@ export async function GET(request: Request) {
     }
   }
 
+  // partnerFor=<oracle_id>: restrict results to cards that can legally be a
+  // second commander alongside that card (Partner, Backgrounds, etc.).
+  // A partner can extend color identity, so no identity filter applies.
+  const partnerFor = searchParams.get("partnerFor");
+  let anchor: RulesCard | null = null;
+  if (partnerFor) {
+    const { data: a } = await supabase
+      .from("cards")
+      .select("name, type_line, oracle_text, keywords")
+      .eq("oracle_id", partnerFor)
+      .limit(1)
+      .maybeSingle();
+    anchor = (a as RulesCard | null) ?? null;
+    pFormat = "commander";
+    pIdentity = null;
+    pBudget = null;
+  }
+
   const { data, error } = await supabase.rpc("search_cards", {
     q: parsed.text,
     p_types: parsed.types.length ? parsed.types : null,
@@ -65,7 +89,7 @@ export async function GET(request: Request) {
     p_mv_min: parsed.mvMin,
     p_mv_max: parsed.mvMax,
     p_rarities: parsed.rarities.length ? parsed.rarities : null,
-    p_limit: limit,
+    p_limit: anchor ? limit * 5 : limit,
     p_budget: pBudget,
     p_format: pFormat,
     p_identity: pIdentity,
@@ -75,5 +99,29 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ results: data ?? [] });
+  let results = (data ?? []) as { oracle_id: string; name: string }[];
+  if (anchor && results.length) {
+    const { data: rules } = await supabase
+      .from("cards")
+      .select("oracle_id, name, type_line, oracle_text, keywords")
+      .in(
+        "oracle_id",
+        results.map((r) => r.oracle_id)
+      );
+    const eligible = new Set(
+      (rules ?? [])
+        .filter((c) => {
+          const rc = c as unknown as RulesCard;
+          return (
+            partnersAllowed(anchor!, rc) &&
+            (canBeCommander(rc) || isBackground(rc)) &&
+            rc.name !== anchor!.name
+          );
+        })
+        .map((c) => c.oracle_id as string)
+    );
+    results = results.filter((r) => eligible.has(r.oracle_id)).slice(0, limit);
+  }
+
+  return NextResponse.json({ results });
 }

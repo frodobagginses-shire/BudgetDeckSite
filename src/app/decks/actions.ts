@@ -14,8 +14,10 @@ import {
   canBeCommander,
   isBackground,
   partnersAllowed,
+  partnerSpec,
   unlimitedCopies,
   maxCopies,
+  type PartnerSpec,
   type RulesCard,
 } from "@/lib/commander";
 
@@ -79,14 +81,59 @@ export async function createDeck(formData: FormData) {
         .select("name, type_line, oracle_text, keywords")
         .eq("scryfall_id", scryfallId)
         .maybeSingle();
+      const cmdRules = rules as RulesCard | null;
+      const cmdLegal = cmdRules ? canBeCommander(cmdRules) : false;
       await supabase.from("deck_cards").insert({
         deck_id: data.id,
         scryfall_id: scryfallId,
         quantity: 1,
         board: "main",
         // Only flag it as commander if it's actually a legal commander.
-        is_commander: rules ? canBeCommander(rules as RulesCard) : false,
+        is_commander: cmdLegal,
       });
+
+      // Optional second commander (Partner, Backgrounds, etc.).
+      const partnerOracle = String(
+        formData.get("partner_oracle_id") || ""
+      ).trim();
+      if (partnerOracle && cmdLegal && cmdRules) {
+        const { data: pcheap } = await supabase
+          .from("card_cheapest")
+          .select("cheapest_scryfall_id")
+          .eq("oracle_id", partnerOracle)
+          .maybeSingle();
+        let pId = pcheap?.cheapest_scryfall_id as string | undefined;
+        if (!pId) {
+          const { data: panyc } = await supabase
+            .from("cards")
+            .select("scryfall_id")
+            .eq("oracle_id", partnerOracle)
+            .limit(1)
+            .maybeSingle();
+          pId = panyc?.scryfall_id as string | undefined;
+        }
+        if (pId && pId !== scryfallId) {
+          const { data: pRulesData } = await supabase
+            .from("cards")
+            .select("name, type_line, oracle_text, keywords")
+            .eq("scryfall_id", pId)
+            .maybeSingle();
+          const pRules = pRulesData as RulesCard | null;
+          const pairOk =
+            !!pRules &&
+            partnersAllowed(cmdRules, pRules) &&
+            (canBeCommander(pRules) || isBackground(pRules));
+          if (pairOk) {
+            await supabase.from("deck_cards").insert({
+              deck_id: data.id,
+              scryfall_id: pId,
+              quantity: 1,
+              board: "main",
+              is_commander: true,
+            });
+          }
+        }
+      }
     }
   }
 
@@ -721,7 +768,7 @@ export async function removeVisitorLockIn(deckId: string) {
 export async function toggleCommander(
   deckId: string,
   scryfallId: string
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<{ ok: boolean; message?: string; partner?: PartnerSpec }> {
   const { supabase } = await requireUser();
   const { data: existing } = await supabase
     .from("deck_cards")
@@ -774,6 +821,10 @@ export async function toggleCommander(
       .eq("scryfall_id", scryfallId);
   };
 
+  // When the candidate ends up as the sole commander, tell the client whether
+  // it supports a second commander so the UI can offer to add one.
+  let partner: PartnerSpec | undefined;
+
   if (currentCmds.length === 0) {
     if (!canBeCommander(candidate)) {
       return {
@@ -782,6 +833,7 @@ export async function toggleCommander(
       };
     }
     await setIt();
+    partner = partnerSpec(candidate) ?? undefined;
   } else if (currentCmds.length === 1) {
     const pairOk =
       partnersAllowed(currentCmds[0], candidate) &&
@@ -796,6 +848,7 @@ export async function toggleCommander(
         .eq("deck_id", deckId)
         .eq("is_commander", true);
       await setIt();
+      partner = partnerSpec(candidate) ?? undefined;
     } else {
       return {
         ok: false,
@@ -809,7 +862,126 @@ export async function toggleCommander(
     };
   }
   revalidatePath(`/decks/${deckId}`);
-  return { ok: true };
+  return { ok: true, partner };
+}
+
+/** Look up whether an oracle card supports a second commander. For
+ * "Partner with X" also resolves X's oracle_id so callers can add it directly. */
+export async function partnerSpecForOracle(oracleId: string): Promise<
+  (PartnerSpec & { partnerOracleId: string | null }) | null
+> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("cards")
+    .select("name, type_line, oracle_text, keywords")
+    .eq("oracle_id", oracleId)
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  const spec = partnerSpec(data as RulesCard);
+  if (!spec) return null;
+  let partnerOracleId: string | null = null;
+  if (spec.partnerName) {
+    const { data: p } = await supabase
+      .from("cards")
+      .select("oracle_id")
+      .ilike("name", spec.partnerName)
+      .limit(1)
+      .maybeSingle();
+    partnerOracleId = (p?.oracle_id as string | undefined) ?? null;
+  }
+  return { ...spec, partnerOracleId };
+}
+
+/** Resolve an oracle card to its cheapest printing's scryfall_id. */
+async function cheapestPrinting(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  oracleId: string
+): Promise<string | null> {
+  const { data: cheap } = await supabase
+    .from("card_cheapest")
+    .select("cheapest_scryfall_id")
+    .eq("oracle_id", oracleId)
+    .maybeSingle();
+  if (cheap?.cheapest_scryfall_id) return cheap.cheapest_scryfall_id as string;
+  const { data: anyc } = await supabase
+    .from("cards")
+    .select("scryfall_id")
+    .eq("oracle_id", oracleId)
+    .limit(1)
+    .maybeSingle();
+  return (anyc?.scryfall_id as string | undefined) ?? null;
+}
+
+/** Add a card (by oracle_id or exact name) to the deck if needed and make it
+ * the second commander. Pairing legality is enforced by toggleCommander. */
+export async function addPartnerCommander(
+  deckId: string,
+  ref: { oracleId?: string; name?: string }
+): Promise<{ ok: boolean; message?: string }> {
+  const { supabase } = await requireUser();
+
+  let oracleId = ref.oracleId ?? null;
+  if (!oracleId && ref.name) {
+    const { data } = await supabase
+      .from("cards")
+      .select("oracle_id")
+      .ilike("name", ref.name)
+      .limit(1)
+      .maybeSingle();
+    oracleId = (data?.oracle_id as string | undefined) ?? null;
+  }
+  if (!oracleId) {
+    return {
+      ok: false,
+      message: `Couldn't find ${ref.name ?? "that card"}.`,
+    };
+  }
+
+  // Already in the main board under any printing? Reuse that row.
+  const { data: printings } = await supabase
+    .from("cards")
+    .select("scryfall_id")
+    .eq("oracle_id", oracleId);
+  const printingIds = (printings ?? []).map((r) => r.scryfall_id as string);
+  let scryfallId: string | null = null;
+  if (printingIds.length) {
+    const { data: inDeck } = await supabase
+      .from("deck_cards")
+      .select("scryfall_id")
+      .eq("deck_id", deckId)
+      .eq("board", "main")
+      .in("scryfall_id", printingIds)
+      .limit(1)
+      .maybeSingle();
+    scryfallId = (inDeck?.scryfall_id as string | undefined) ?? null;
+  }
+
+  let inserted = false;
+  if (!scryfallId) {
+    scryfallId = await cheapestPrinting(supabase, oracleId);
+    if (!scryfallId) return { ok: false, message: "Card not found." };
+    await supabase.from("deck_cards").insert({
+      deck_id: deckId,
+      scryfall_id: scryfallId,
+      quantity: 1,
+      board: "main",
+    });
+    inserted = true;
+  }
+
+  const res = await toggleCommander(deckId, scryfallId);
+  if (!res.ok && inserted) {
+    // Don't leave a card behind if the pairing was rejected.
+    await supabase
+      .from("deck_cards")
+      .delete()
+      .eq("deck_id", deckId)
+      .eq("scryfall_id", scryfallId)
+      .eq("board", "main");
+    revalidatePath(`/decks/${deckId}`);
+  }
+  return { ok: res.ok, message: res.message };
 }
 
 /** Swap the chosen printing of a card (affects Bling price + image). */

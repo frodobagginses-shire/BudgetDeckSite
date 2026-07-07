@@ -17,6 +17,9 @@ alter table public.decks
   add column if not exists priced_boards text[] not null default array['main'];
 
 alter table public.decks
+  drop constraint if exists decks_priced_boards_valid;
+
+alter table public.decks
   add constraint decks_priced_boards_valid check (
     priced_boards @> array['main']
     and priced_boards <@ array['main', 'side', 'considering', 'maybe']
@@ -61,7 +64,9 @@ as $$
   from r;
 $$;
 
--- browse_decks: same change for the browse grid's budget figure + card count.
+-- browse_decks v4: same change for the browse grid's budget figure + card
+-- count. Body is otherwise identical to v3 (0035: like_count, view_count).
+-- Return type is unchanged from v3, so create or replace works.
 create or replace function public.browse_decks(
   p_format     text    default null,
   p_max_budget numeric default null,
@@ -77,6 +82,8 @@ returns table (
   owner_handle     text,
   budget_price     numeric,
   card_count       int,
+  like_count       int,
+  view_count       int,
   updated_at       timestamptz
 )
 language sql
@@ -103,13 +110,22 @@ as $$
      group by d.id
   )
   select db.id, db.name, db.game_format, db.threshold_amount,
-         u.handle as owner_handle, db.budget_price, db.card_count, db.updated_at
+         u.handle as owner_handle, db.budget_price, db.card_count,
+         coalesce(lk.n, 0)::int as like_count,
+         coalesce(vw.count, 0)::int as view_count,
+         db.updated_at
     from deck_budget db
     left join public.users u on u.id = db.owner_id
+    left join (
+      select deck_id, count(*) as n from public.deck_likes group by deck_id
+    ) lk on lk.deck_id = db.id
+    left join public.deck_views vw on vw.deck_id = db.id
    where (p_max_budget is null or db.budget_price <= p_max_budget)
    order by
      case when p_sort = 'price_asc'  then db.budget_price end asc nulls last,
      case when p_sort = 'price_desc' then db.budget_price end desc nulls last,
+     case when p_sort = 'likes'      then coalesce(lk.n, 0) end desc nulls last,
+     case when p_sort = 'views'      then coalesce(vw.count, 0) end desc nulls last,
      case when p_sort = 'name'       then db.name end asc,
      case when p_sort = 'recent' or p_sort is null then db.updated_at end desc
    limit greatest(1, least(coalesce(p_limit, 24), 60))

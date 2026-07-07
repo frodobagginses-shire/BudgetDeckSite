@@ -1,19 +1,45 @@
 "use client";
 
-import { useState } from "react";
-import { createDeck } from "@/app/decks/actions";
+import { useEffect, useState } from "react";
+import { createDeck, partnerSpecForOracle } from "@/app/decks/actions";
 import { GAME_FORMATS } from "@/lib/types";
 import { useCardSearch } from "@/lib/use-card-search";
 import { Button } from "@/components/ui/button";
+import type { PartnerSpec } from "@/lib/commander";
 
 const field = "border-border bg-background rounded-md border px-3 py-2 text-sm";
 
+type PickedCard = { name: string; oracle_id: string };
+type SpecWithOracle = PartnerSpec & { partnerOracleId: string | null };
+
 export function NewDeckForm() {
   const [format, setFormat] = useState("commander");
-  const [commander, setCommander] = useState<{
-    name: string;
-    oracle_id: string;
-  } | null>(null);
+  const [commander, setCommander] = useState<PickedCard | null>(null);
+  const [spec, setSpec] = useState<SpecWithOracle | null>(null);
+  const [partner, setPartner] = useState<PickedCard | null>(null);
+  const [wantNamedPartner, setWantNamedPartner] = useState(true);
+
+  // When the chosen commander supports a second commander, offer one.
+  useEffect(() => {
+    setSpec(null);
+    setPartner(null);
+    setWantNamedPartner(true);
+    if (!commander) return;
+    let alive = true;
+    partnerSpecForOracle(commander.oracle_id).then((s) => {
+      if (alive) setSpec(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [commander]);
+
+  const partnerOracleId =
+    spec?.kind === "partnerWith"
+      ? wantNamedPartner
+        ? (spec.partnerOracleId ?? "")
+        : ""
+      : (partner?.oracle_id ?? "");
 
   return (
     <form action={createDeck} className="flex flex-col gap-4">
@@ -51,6 +77,39 @@ export function NewDeckForm() {
             name="commander_oracle_id"
             value={commander?.oracle_id ?? ""}
           />
+
+          {spec?.kind === "partnerWith" && spec.partnerOracleId && (
+            <label className="mt-1 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={wantNamedPartner}
+                onChange={(e) => setWantNamedPartner(e.target.checked)}
+              />
+              <span>
+                Also add <strong>{spec.partnerName}</strong> as partner
+                commander
+              </span>
+            </label>
+          )}
+
+          {spec && spec.kind !== "partnerWith" && (
+            <div className="mt-1 flex flex-col gap-1">
+              <span className="font-medium">
+                {spec.kind === "chooseBackground"
+                  ? "Background (optional)"
+                  : spec.kind === "doctorsCompanion"
+                    ? "Doctor (optional)"
+                    : "Partner commander (optional)"}
+              </span>
+              <CommanderPicker
+                value={partner}
+                onChange={setPartner}
+                partnerFor={commander?.oracle_id}
+              />
+            </div>
+          )}
+
+          <input type="hidden" name="partner_oracle_id" value={partnerOracleId} />
         </div>
       )}
 
@@ -94,11 +153,14 @@ export function NewDeckForm() {
 function CommanderPicker({
   value,
   onChange,
+  partnerFor,
 }: {
-  value: { name: string; oracle_id: string } | null;
-  onChange: (v: { name: string; oracle_id: string } | null) => void;
+  value: PickedCard | null;
+  onChange: (v: PickedCard | null) => void;
+  /** Restrict results to legal second commanders for this oracle_id. */
+  partnerFor?: string;
 }) {
-  const { q, setQ, results, open, reset } = useCardSearch(8);
+  const { q, setQ, results, open, reset } = useCardSearch(8, undefined, partnerFor);
 
   if (value) {
     return (

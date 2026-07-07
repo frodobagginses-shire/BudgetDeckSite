@@ -11,6 +11,8 @@ import {
   toggleCommander,
 } from "@/app/decks/actions";
 import { formatUsd } from "@/lib/format";
+import { PartnerPrompt } from "@/components/decks/partner-prompt";
+import type { PartnerSpec } from "@/lib/commander";
 import type { Board, PricedCard } from "@/lib/types";
 
 const BOARDS: { value: Board; label: string }[] = [
@@ -44,6 +46,7 @@ export function CardRowMenu({
   const [qtyOpen, setQtyOpen] = useState(false);
   const [qtyVal, setQtyVal] = useState(String(card.quantity));
   const [msg, setMsg] = useState<string | null>(null);
+  const [partnerSpec, setPartnerSpec] = useState<PartnerSpec | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
@@ -186,6 +189,7 @@ export function CardRowMenu({
                   setMsg(null);
                   router.refresh();
                   setOpen(false);
+                  if (r.partner) setPartnerSpec(r.partner);
                 })
               }
             >
@@ -271,6 +275,14 @@ export function CardRowMenu({
             Remove
           </button>
         </div>
+      )}
+      {partnerSpec && (
+        <PartnerPrompt
+          deckId={deckId}
+          commander={{ name: card.name, oracle_id: card.oracle_id }}
+          spec={partnerSpec}
+          onClose={() => setPartnerSpec(null)}
+        />
       )}
     </div>
   );

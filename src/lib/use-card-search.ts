@@ -8,7 +8,7 @@ import type { SearchCard } from "@/lib/types";
  * - cancels in-flight requests when the term changes (no out-of-order results)
  * - caches results per term, so backspacing / re-typing is instant
  */
-export function useCardSearch(limit = 10, deckId?: string) {
+export function useCardSearch(limit = 10, deckId?: string, partnerFor?: string) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<SearchCard[]>([]);
   const [open, setOpen] = useState(false);
@@ -42,7 +42,7 @@ export function useCardSearch(limit = 10, deckId?: string) {
         const res = await fetch(
           `/api/cards/search?q=${encodeURIComponent(term)}&limit=${limit}${
             deckId ? `&deckId=${encodeURIComponent(deckId)}` : ""
-          }`,
+          }${partnerFor ? `&partnerFor=${encodeURIComponent(partnerFor)}` : ""}`,
           { signal: ac.signal }
         );
         const json = await res.json();
@@ -58,7 +58,7 @@ export function useCardSearch(limit = 10, deckId?: string) {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [q, limit, deckId]);
+  }, [q, limit, deckId, partnerFor]);
 
   const reset = () => {
     setQ("");
