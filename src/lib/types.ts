@@ -112,6 +112,8 @@ export interface BrowseDeck {
   like_count: number;
   view_count: number;
   updated_at: string;
+  created_at: string;
+  last_locked_at: string | null;
 }
 
 export interface LockIn {
