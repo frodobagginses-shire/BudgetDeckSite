@@ -14,11 +14,27 @@ const TYPE_ORDER = [
   "Land",
 ] as const;
 
+// Matching priority differs from display order: Land wins over other card
+// types (artifact lands, Dryad Arbor), then Creature (artifact/enchantment
+// creatures), then the rest — the convention deck builders expect.
+const TYPE_MATCH_PRIORITY = [
+  "Land",
+  "Creature",
+  "Planeswalker",
+  "Battle",
+  "Instant",
+  "Sorcery",
+  "Artifact",
+  "Enchantment",
+] as const;
+
 /** Reduce a full type line to a single grouping bucket for the editor list. */
 export function getTypeBucket(typeLine: string | null): string {
   if (!typeLine) return "Other";
-  for (const t of TYPE_ORDER) {
-    if (typeLine.includes(t)) return t;
+  // Only bucket by the card's front-face types (before any "//").
+  const front = typeLine.split("//")[0];
+  for (const t of TYPE_MATCH_PRIORITY) {
+    if (front.includes(t)) return t;
   }
   return "Other";
 }
