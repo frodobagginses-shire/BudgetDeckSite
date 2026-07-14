@@ -79,12 +79,22 @@ export default async function LockSnapshotPage({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10">
-      <Link
-        href={`/decks/${id}`}
-        className="text-muted-foreground hover:text-foreground text-sm"
-      >
-        Back to current deck
-      </Link>
+      <div className="flex flex-wrap items-center gap-4 text-sm">
+        <Link
+          href={`/decks/${id}`}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          Back to current deck
+        </Link>
+        {lock.kind === "creator" && (
+          <Link
+            href={`/decks/${id}/locks`}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Snapshot history
+          </Link>
+        )}
+      </div>
 
       <header className="flex flex-col gap-2">
         <span className="text-muted-foreground text-sm">

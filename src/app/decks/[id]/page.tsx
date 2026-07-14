@@ -231,15 +231,17 @@ export default async function DeckEditorPage({
   const deckRecord =
     ((recordRows as DeckRecord[] | null) ?? [])[0] ?? null;
 
-  const { data: lockData } = await supabase
+  const { data: lockData, count: lockCountRaw } = await supabase
     .from("lock_ins")
-    .select("id, budget_price, bling_price, locked_at, kind")
+    .select("id, budget_price, bling_price, locked_at, kind", {
+      count: "exact",
+    })
     .eq("deck_id", id)
     .eq("kind", "creator")
     .order("locked_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const lockIn = (lockData as LockIn | null) ?? null;
+    .limit(1);
+  const lockIn = ((lockData?.[0] as LockIn | undefined) ?? null) as LockIn | null;
+  const lockCount = lockCountRaw ?? (lockIn ? 1 : 0);
   const lockHref = lockIn ? `/decks/${id}/locks/${lockIn.id}` : undefined;
 
   // Non-owners (and anonymous visitors) get the public read-only view.
@@ -282,6 +284,7 @@ export default async function DeckEditorPage({
         otherBoards={visitorBoards}
         totals={totals}
         lockIn={lockIn}
+        lockCount={lockCount}
         canLock={!!user}
         locked={visitorLocked}
         parent={parent}
@@ -451,6 +454,14 @@ export default async function DeckEditorPage({
         <div className="flex basis-full flex-wrap items-center gap-3 pt-1">
           <LockInButton deckId={deck.id} />
           <LockInBadge lockIn={lockIn} href={lockHref} />
+          {lockCount > 1 && (
+            <Link
+              href={`/decks/${deck.id}/locks`}
+              className="text-muted-foreground hover:text-foreground text-xs underline"
+            >
+              Snapshot history ({lockCount})
+            </Link>
+          )}
           <ForkButton deckId={deck.id} />
           <LikeButton
             deckId={deck.id}

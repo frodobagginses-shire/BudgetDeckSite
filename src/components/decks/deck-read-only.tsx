@@ -32,6 +32,7 @@ export function DeckReadOnly({
   otherBoards = [],
   totals,
   lockIn,
+  lockCount = 0,
   canLock,
   locked,
   parent,
@@ -55,6 +56,7 @@ export function DeckReadOnly({
   }[];
   totals: DeckTotals;
   lockIn: LockIn | null;
+  lockCount?: number;
   canLock: boolean;
   locked: boolean;
   parent: LineageParent | null;
@@ -150,6 +152,14 @@ export function DeckReadOnly({
               lockIn={lockIn}
               href={`/decks/${deck.id}/locks/${lockIn.id}`}
             />
+          )}
+          {lockCount > 1 && (
+            <Link
+              href={`/decks/${deck.id}/locks`}
+              className="text-muted-foreground hover:text-foreground text-xs underline"
+            >
+              Snapshot history ({lockCount})
+            </Link>
           )}
           <LikeButton
             deckId={deck.id}
