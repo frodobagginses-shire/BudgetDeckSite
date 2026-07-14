@@ -513,7 +513,7 @@ export default async function DeckEditorPage({
 
       <details className="border-border bg-card rounded-md border px-3 py-2 text-sm shadow-sm">
         <summary className="text-muted-foreground hover:text-foreground cursor-pointer">
-          Paste a list to bulk-import
+          Bulk import / edit
         </summary>
         <div className="pt-3">
           <BulkImport deckId={deck.id} />
