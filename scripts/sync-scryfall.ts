@@ -13,10 +13,9 @@
  * rate limits. Bulk data is what they ask heavy consumers to use.
  */
 import { createClient } from "@supabase/supabase-js";
-import { parser } from "stream-json";
-import { streamArray } from "stream-json/streamers/StreamArray";
-import { pipeline } from "node:stream/promises";
-import { Readable, Writable } from "node:stream";
+import { createInterface } from "node:readline";
+import { createGunzip } from "node:zlib";
+import { Readable } from "node:stream";
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -163,10 +162,21 @@ async function getBulkDownloadUrl(): Promise<string> {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
   if (!res.ok) throw new Error(`bulk-data index failed: HTTP ${res.status}`);
-  const json = (await res.json()) as { data: { type: string; download_uri: string }[] };
+  const json = (await res.json()) as {
+    data: {
+      type: string;
+      jsonl_download_uri?: string;
+      download_uri?: string;
+    }[];
+  };
   const def = json.data.find((d) => d.type === "default_cards");
   if (!def) throw new Error("default_cards bulk type not found in index");
-  return def.download_uri;
+  // Scryfall now serves a gzipped JSON Lines file (`jsonl_download_uri`); the
+  // legacy plain-JSON `download_uri` was removed. Fall back to it if it ever
+  // returns, but prefer the JSONL URL.
+  const url = def.jsonl_download_uri ?? def.download_uri;
+  if (!url) throw new Error("no download URI on default_cards bulk entry");
+  return url;
 }
 
 async function upsertBatch(rows: CardRow[]): Promise<void> {
@@ -179,7 +189,7 @@ async function upsertBatch(rows: CardRow[]): Promise<void> {
 async function main(): Promise<void> {
   const started = Date.now();
   const url = await getBulkDownloadUrl();
-  console.log(`[sync] downloading default_cards bulk: ${url}`);
+  console.log(`[sync] downloading default_cards bulk (gzip jsonl): ${url}`);
 
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
   if (!res.ok || !res.body) {
@@ -205,30 +215,49 @@ async function main(): Promise<void> {
     }
   };
 
-  const sink = new Writable({
-    objectMode: true,
-    write(chunk: { value: ScryfallCard }, _enc, cb) {
-      processed++;
-      const row = toRow(chunk.value);
-      if (!row) {
-        skipped++;
-        cb();
-        return;
-      }
-      batch.push(row);
-      if (batch.length >= BATCH_SIZE) {
-        if (processed % 20000 < BATCH_SIZE) {
-          console.log(`[sync] processed ${processed}, upserted ${upserted}…`);
-        }
-        flush().then(() => cb(), cb);
-        return;
-      }
-      cb();
-    },
-  });
+  // The file is a gzip-compressed JSON Lines stream (one card object per line),
+  // and it's stored gzipped (not transfer-encoded), so we gunzip it ourselves.
+  const source = Readable.fromWeb(
+    res.body as Parameters<typeof Readable.fromWeb>[0]
+  );
+  const gunzip = createGunzip();
+  const rl = createInterface({ input: gunzip, crlfDelay: Infinity });
 
-  const nodeStream = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]);
-  await pipeline(nodeStream, parser(), streamArray(), sink);
+  // pipe() forwards data but not errors, so watch both streams and surface any
+  // failure (a truncated download must fail the job, not import a partial set).
+  let streamErr: Error | null = null;
+  const onErr = (e: Error) => {
+    streamErr = e;
+    rl.close();
+  };
+  source.on("error", onErr);
+  gunzip.on("error", onErr);
+  source.pipe(gunzip);
+
+  for await (const line of rl) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let card: ScryfallCard;
+    try {
+      card = JSON.parse(trimmed) as ScryfallCard;
+    } catch {
+      continue; // ignore any stray non-JSON line (e.g. an array bracket)
+    }
+    processed++;
+    const row = toRow(card);
+    if (!row) {
+      skipped++;
+      continue;
+    }
+    batch.push(row);
+    if (batch.length >= BATCH_SIZE) {
+      if (processed % 20000 < BATCH_SIZE) {
+        console.log(`[sync] processed ${processed}, upserted ${upserted}…`);
+      }
+      await flush();
+    }
+  }
+  if (streamErr) throw streamErr;
   await flush();
 
   // F-4: recompute cheapest printing per oracle card from the freshly synced data.
