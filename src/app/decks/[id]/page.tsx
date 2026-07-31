@@ -505,21 +505,23 @@ export default async function DeckEditorPage({
       {tab === "cards" && (
         <>
       {/* Add card + export */}
-      <div className="flex items-start gap-3">
-        <div className="flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="sm:flex-1">
           <AddCardSearch deckId={deck.id} />
         </div>
-        <BuyDeckButton
-          cards={cards.map((c) => ({ name: c.name, quantity: c.quantity }))}
-        />
-        <ExportMenu
-          cards={cards.map((c) => ({
-            name: c.name,
-            quantity: c.quantity,
-            set_code: c.set_code,
-            collector_number: c.collector_number,
-          }))}
-        />
+        <div className="flex items-center gap-2">
+          <BuyDeckButton
+            cards={cards.map((c) => ({ name: c.name, quantity: c.quantity }))}
+          />
+          <ExportMenu
+            cards={cards.map((c) => ({
+              name: c.name,
+              quantity: c.quantity,
+              set_code: c.set_code,
+              collector_number: c.collector_number,
+            }))}
+          />
+        </div>
       </div>
 
       <details className="border-border bg-card rounded-md border px-3 py-2 text-sm shadow-sm">
