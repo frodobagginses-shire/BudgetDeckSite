@@ -141,7 +141,7 @@ export function DeckReadOnly({
             {formatUsd(totals.budget_price)}
           </div>
         </div>
-        <div className="text-muted-foreground flex gap-6 text-sm">
+        <div className="text-muted-foreground flex flex-wrap gap-x-6 gap-y-1 text-sm">
           <span>Total {formatUsd(totals.total_price)}</span>
           <span>Your printings {formatUsd(totals.bling_price)}</span>
           <span>{totals.card_count} cards</span>
@@ -153,7 +153,7 @@ export function DeckReadOnly({
               href={`/decks/${deck.id}/locks/${lockIn.id}`}
             />
           )}
-          {lockCount > 1 && (
+          {lockCount > (lockIn ? 1 : 0) && (
             <Link
               href={`/decks/${deck.id}/locks`}
               className="text-muted-foreground hover:text-foreground text-xs underline"

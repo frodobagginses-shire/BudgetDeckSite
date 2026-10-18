@@ -129,7 +129,9 @@ export interface LockIn {
   budget_price: number;
   bling_price: number | null;
   locked_at: string;
-  kind: "creator" | "visitor";
+  /** creator = owner's Price Lock, visitor = someone else's stamp,
+   * auto = snapshot taken automatically after a decklist change. */
+  kind: "creator" | "visitor" | "auto";
 }
 
 export interface LockSnapshotCard {
@@ -140,6 +142,9 @@ export interface LockSnapshotCard {
   counts_toward_budget: boolean;
   line_cheapest: number | null;
   line_bling: number | null;
+  /** Printing (set code + collector number); snapshots since 0042 only. */
+  set?: string | null;
+  cn?: string | null;
 }
 
 export interface LockSnapshot {

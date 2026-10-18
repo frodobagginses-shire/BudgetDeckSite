@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatUsd } from "@/lib/format";
+import { LocalTime } from "@/components/local-time";
+import { SnapshotExportMenu } from "@/components/decks/snapshot-export-menu";
 import type { LockSnapshot, LockSnapshotCard } from "@/lib/types";
 
 export const metadata = {
@@ -39,11 +41,24 @@ export default async function LockSnapshotPage({
     .maybeSingle();
   const lockerHandle = (locker?.handle as string) ?? null;
 
-  const date = new Date(lock.locked_at).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const isAuto = lock.kind === "auto";
+  const inHistory = lock.kind === "creator" || isAuto;
+  const date = <LocalTime iso={lock.locked_at as string} long />;
+
+  // The snapshot just before this one, for a one-click "what changed".
+  let prevId: string | null = null;
+  if (inHistory) {
+    const { data: prev } = await supabase
+      .from("lock_ins")
+      .select("id")
+      .eq("deck_id", id)
+      .in("kind", ["creator", "auto"])
+      .lt("locked_at", lock.locked_at)
+      .order("locked_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    prevId = (prev?.id as string | undefined) ?? null;
+  }
 
   const snap = (lock.snapshot as LockSnapshot | null) ?? null;
   const cards = snap?.cards ?? [];
@@ -78,15 +93,15 @@ export default async function LockSnapshotPage({
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10">
-      <div className="flex flex-wrap items-center gap-4 text-sm">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         <Link
           href={`/decks/${id}`}
           className="text-muted-foreground hover:text-foreground"
         >
-          Back to current deck
+          ← Back to current deck
         </Link>
-        {lock.kind === "creator" && (
+        {inHistory && (
           <Link
             href={`/decks/${id}/locks`}
             className="text-muted-foreground hover:text-foreground"
@@ -98,7 +113,7 @@ export default async function LockSnapshotPage({
 
       <header className="flex flex-col gap-2">
         <span className="text-muted-foreground text-sm">
-          Price Lock snapshot
+          {isAuto ? "Auto snapshot" : "Price Lock snapshot"}
           {lockerHandle && (
             <>
               {" · "}
@@ -111,7 +126,7 @@ export default async function LockSnapshotPage({
             </>
           )}
         </span>
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
           {snap?.name ?? "Deck"}
         </h1>
         <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm capitalize">
@@ -124,19 +139,42 @@ export default async function LockSnapshotPage({
 
       <div className="border-border bg-card flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border p-4">
         <div>
-          <div className="text-muted-foreground text-xs">Locked budget price</div>
+          <div className="text-muted-foreground text-xs">
+            {isAuto ? "Budget price at snapshot" : "Locked budget price"}
+          </div>
           <div className="text-2xl font-bold">
             {formatUsd(lock.budget_price)}
           </div>
         </div>
         <div className="text-muted-foreground text-sm">
-          Locked on <span className="text-foreground">{date}</span>
+          {isAuto ? "Saved" : "Locked"} on{" "}
+          <span className="text-foreground">{date}</span>
         </div>
+        {snap && (
+          <div className="flex basis-full flex-wrap items-center gap-2 sm:ml-auto sm:basis-auto">
+            <SnapshotExportMenu
+              deckName={snap.name ?? "deck"}
+              lockedAt={lock.locked_at as string}
+              cards={cards}
+            />
+            {prevId && (
+              <Link
+                href={`/decks/${id}/locks/compare?from=${prevId}&to=${lock.id}`}
+                className="border-border bg-card hover:bg-muted inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium"
+              >
+                What changed
+              </Link>
+            )}
+          </div>
+        )}
       </div>
 
       <p className="text-muted-foreground border-border bg-muted/40 rounded-md border p-3 text-xs">
-        This is a frozen snapshot of the deck exactly as it stood when the price
-        was locked on {date}. The{" "}
+        This is a frozen snapshot of the deck exactly as it stood
+        {isAuto
+          ? " after the decklist changed on "
+          : " when the price was locked on "}
+        {date}. The{" "}
         <Link href={`/decks/${id}`} className="underline">
           live deck
         </Link>{" "}

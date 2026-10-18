@@ -97,6 +97,8 @@ export default async function ProfilePage({
     .from("lock_ins")
     .select("id, budget_price, locked_at, deck_id, decks(name, visibility)")
     .eq("user_id", profile.id)
+    // Price Locks only; automatic snapshots live in each deck's history.
+    .in("kind", ["creator", "visitor"])
     .order("locked_at", { ascending: false });
   // Latest lock-in per deck (creator or visitor), most-recent first.
   const seenDecks = new Set<string>();

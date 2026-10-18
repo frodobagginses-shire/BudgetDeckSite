@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   moveCard,
@@ -12,6 +12,7 @@ import {
 } from "@/app/decks/actions";
 import { formatUsd } from "@/lib/format";
 import { PartnerPrompt } from "@/components/decks/partner-prompt";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import type { PartnerSpec } from "@/lib/commander";
 import type { Board, PricedCard } from "@/lib/types";
 
@@ -49,26 +50,19 @@ export function CardRowMenu({
   const [partnerSpec, setPartnerSpec] = useState<PartnerSpec | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setPrintingsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
+  const close = useCallback(() => {
+    setOpen(false);
+    setPrintingsOpen(false);
+    setQtyOpen(false);
+  }, []);
 
   const act = (fn: () => Promise<void>) =>
     startTransition(async () => {
       await fn();
       router.refresh();
-      setOpen(false);
-      setPrintingsOpen(false);
+      close();
     });
 
   const loadPrintings = async () => {
@@ -89,17 +83,29 @@ export function CardRowMenu({
     "hover:bg-muted block w-full px-3 py-1.5 text-left disabled:opacity-50";
 
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="text-muted-foreground hover:text-foreground px-1 leading-none"
-        aria-label="More options"
+        onClick={() => (open ? close() : setOpen(true))}
+        className={`text-muted-foreground hover:text-foreground hover:bg-muted -my-1 flex size-8 shrink-0 items-center justify-center rounded-md text-base leading-none sm:size-6 ${
+          open ? "bg-muted text-foreground" : ""
+        }`}
+        aria-label={`More options for ${card.name}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
         ⋮
       </button>
-      {open && (
-        <div className="border-border bg-card absolute right-0 z-50 mt-1 w-56 rounded-md border py-1 text-sm shadow-lg">
+      <FloatingPanel
+        anchorRef={triggerRef}
+        open={open}
+        onClose={close}
+        width={224}
+        sheet
+        title={card.name}
+      >
+        <div className="py-1 text-sm max-sm:text-base">
           <button
             type="button"
             disabled={pending}
@@ -188,7 +194,7 @@ export function CardRowMenu({
                   }
                   setMsg(null);
                   router.refresh();
-                  setOpen(false);
+                  close();
                   if (r.partner) setPartnerSpec(r.partner);
                 })
               }
@@ -275,7 +281,7 @@ export function CardRowMenu({
             Remove
           </button>
         </div>
-      )}
+      </FloatingPanel>
       {partnerSpec && (
         <PartnerPrompt
           deckId={deckId}
@@ -284,6 +290,6 @@ export function CardRowMenu({
           onClose={() => setPartnerSpec(null)}
         />
       )}
-    </div>
+    </>
   );
 }

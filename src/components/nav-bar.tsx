@@ -25,7 +25,10 @@ export function NavBar({ account }: { account: { handle: string } | null }) {
 
   return (
     <header className="border-border/70 bg-background/80 sticky top-0 z-40 border-b backdrop-blur-md">
-      <nav className="mx-auto flex w-full max-w-5xl items-center gap-1 px-6 py-3 text-sm">
+      {/* Phones: logo + account on the first row, page links on a second row
+          that scrolls sideways, so the bar never makes the page wider than
+          the screen. md and up: one row, as before. */}
+      <nav className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-1 px-4 pt-2 text-sm md:flex-nowrap md:px-6 md:py-3">
         <Link
           href="/"
           className="mr-3 flex items-center gap-2 font-bold tracking-tight"
@@ -57,11 +60,17 @@ export function NavBar({ account }: { account: { handle: string } | null }) {
           </svg>
           Budget Deck Site
         </Link>
-        {LINKS.map((l) => (
-          <Link key={l.href} href={l.href} className={cls(l.href)}>
-            {l.label}
-          </Link>
-        ))}
+        <div className="order-last -mx-4 flex w-[calc(100%+2rem)] shrink-0 gap-1 overflow-x-auto px-4 py-1.5 [scrollbar-width:none] md:order-none md:mx-0 md:w-auto md:overflow-visible md:p-0">
+          {LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`shrink-0 whitespace-nowrap ${cls(l.href)}`}
+            >
+              {l.label}
+            </Link>
+          ))}
+        </div>
         {account ? (
           <Link
             href={`/users/${account.handle}`}

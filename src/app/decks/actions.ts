@@ -31,6 +31,20 @@ async function requireUser() {
   return { supabase, user };
 }
 
+type Supa = Awaited<ReturnType<typeof createClient>>;
+
+/** After a decklist change, let the database record an automatic snapshot.
+ * snapshot_deck() only snapshots a valid deck, skips when the list didn't
+ * actually change, and folds edits less than an hour apart into a single
+ * snapshot (see migration 0042). Best effort: it never blocks the edit. */
+async function autoSnapshot(supabase: Supa, deckId: string) {
+  try {
+    await supabase.rpc("snapshot_deck", { p_deck_id: deckId, p_manual: false });
+  } catch {
+    /* snapshots are a convenience; the edit itself already succeeded */
+  }
+}
+
 export async function createDeck(formData: FormData) {
   const { supabase, user } = await requireUser();
   const name = String(formData.get("name") || "").trim() || "Untitled deck";
@@ -162,6 +176,7 @@ export async function updateDeckMeta(deckId: string, formData: FormData) {
     .update({ name, game_format, threshold_amount, visibility, priced_boards })
     .eq("id", deckId);
   if (error) throw new Error(error.message);
+  await autoSnapshot(supabase, deckId);
   revalidatePath(`/decks/${deckId}`);
 }
 
@@ -298,6 +313,7 @@ export async function forkDeck(deckId: string, linkBack: boolean) {
         counts_toward_budget: c.counts_toward_budget,
       }))
     );
+    await autoSnapshot(supabase, created.id);
   }
 
   redirect(`/decks/${created.id}`);
@@ -438,6 +454,7 @@ export async function addCard(
       board: "main",
     });
   }
+  await autoSnapshot(supabase, deckId);
   revalidatePath(`/decks/${deckId}`);
   return { ok: true };
 }
@@ -478,6 +495,7 @@ export async function moveCard(
   } else {
     await supabase.from("deck_cards").update({ board: toBoard }).eq("id", src.id);
   }
+  await autoSnapshot(supabase, deckId);
   revalidatePath(`/decks/${deckId}`);
 }
 
@@ -623,6 +641,7 @@ export async function importDeckList(
       .from("deck_cards")
       .upsert(rows, { onConflict: "deck_id,scryfall_id,board" });
   }
+  await autoSnapshot(supabase, deckId);
   revalidatePath(`/decks/${deckId}`);
   return { imported: rows.length, unmatched: Array.from(new Set(unmatched)) };
 }
@@ -793,6 +812,7 @@ export async function replaceDeckList(
       .upsert(upserts, { onConflict: "deck_id,scryfall_id,board" });
   }
 
+  await autoSnapshot(supabase, deckId);
   revalidatePath(`/decks/${deckId}`);
   return { added, removed, updated, unmatched: Array.from(new Set(unmatched)) };
 }
@@ -811,6 +831,7 @@ export async function setQuantity(
       .eq("deck_id", deckId)
       .eq("scryfall_id", scryfallId)
       .eq("board", board);
+    await autoSnapshot(supabase, deckId);
     revalidatePath(`/decks/${deckId}`);
     return;
   }
@@ -842,6 +863,7 @@ export async function setQuantity(
     .eq("deck_id", deckId)
     .eq("scryfall_id", scryfallId)
     .eq("board", board);
+  await autoSnapshot(supabase, deckId);
   revalidatePath(`/decks/${deckId}`);
 }
 
@@ -857,6 +879,7 @@ export async function removeCard(
     .eq("deck_id", deckId)
     .eq("scryfall_id", scryfallId)
     .eq("board", board);
+  await autoSnapshot(supabase, deckId);
   revalidatePath(`/decks/${deckId}`);
 }
 
@@ -864,6 +887,17 @@ export async function removeCard(
  * today's date, so the locked price is backed by the exact build at that time. */
 export async function lockInDeck(deckId: string) {
   const { supabase, user } = await requireUser();
+  // snapshot_deck records the lock and, if an auto-snapshot from the last
+  // hour already holds this exact list, promotes it instead of duplicating.
+  const { error: snapErr } = await supabase.rpc("snapshot_deck", {
+    p_deck_id: deckId,
+    p_manual: true,
+  });
+  if (!snapErr) {
+    revalidatePath(`/decks/${deckId}`);
+    return;
+  }
+  // Fallback for a database without migration 0042.
   const { data: totalsData } = await supabase.rpc("deck_totals", {
     p_deck_id: deckId,
   });
@@ -981,6 +1015,7 @@ export async function toggleCommander(
       .eq("deck_id", deckId)
       .eq("scryfall_id", scryfallId)
       .eq("board", "main");
+    await autoSnapshot(supabase, deckId);
     revalidatePath(`/decks/${deckId}`);
     return { ok: true };
   }
@@ -1056,6 +1091,7 @@ export async function toggleCommander(
       message: "You already have two commanders. Unset one first.",
     };
   }
+  await autoSnapshot(supabase, deckId);
   revalidatePath(`/decks/${deckId}`);
   return { ok: true, partner };
 }
@@ -1210,5 +1246,6 @@ export async function setCountsTowardBudget(
     .eq("deck_id", deckId)
     .eq("scryfall_id", scryfallId)
     .eq("board", board);
+  await autoSnapshot(supabase, deckId);
   revalidatePath(`/decks/${deckId}`);
 }

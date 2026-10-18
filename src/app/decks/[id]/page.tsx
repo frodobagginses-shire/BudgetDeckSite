@@ -29,6 +29,7 @@ import {
 } from "@/components/decks/deck-lineage";
 import { LikeButton } from "@/components/decks/like-button";
 import { ViewCount } from "@/components/decks/view-count";
+import { DeckValidity } from "@/components/decks/deck-validity";
 
 export async function generateMetadata({
   params,
@@ -244,6 +245,16 @@ export default async function DeckEditorPage({
   const lockCount = lockCountRaw ?? (lockIn ? 1 : 0);
   const lockHref = lockIn ? `/decks/${id}/locks/${lockIn.id}` : undefined;
 
+  // Snapshot history = Price Locks + automatic snapshots.
+  const { count: snapCountRaw } = await supabase
+    .from("lock_ins")
+    .select("id", { count: "exact", head: true })
+    .eq("deck_id", id)
+    .in("kind", ["creator", "auto"]);
+  const snapshotCount = snapCountRaw ?? lockCount;
+  // Link to the history whenever it holds more than the badge already shows.
+  const showHistory = snapshotCount > (lockIn ? 1 : 0);
+
   // Non-owners (and anonymous visitors) get the public read-only view.
   if (!isOwner) {
     // Count this visit. Fire-and-forget so a counter hiccup never blocks the
@@ -284,7 +295,7 @@ export default async function DeckEditorPage({
         otherBoards={visitorBoards}
         totals={totals}
         lockIn={lockIn}
-        lockCount={lockCount}
+        lockCount={snapshotCount}
         canLock={!!user}
         locked={visitorLocked}
         parent={parent}
@@ -302,6 +313,15 @@ export default async function DeckEditorPage({
 
   const overBudget =
     deck.threshold_amount != null && totals.budget_price > deck.threshold_amount;
+
+  // What keeps the list from being complete (null if the check is missing).
+  const { data: problemsData, error: problemsErr } = await supabase.rpc(
+    "deck_problems",
+    { p_deck_id: id }
+  );
+  const problems = problemsErr
+    ? null
+    : ((problemsData as string[] | null) ?? []);
 
   // Mainboard cards excluding the commander (which renders in its own section).
   const commanderCards = cards.filter((c) => commanderIds.has(c.scryfall_id));
@@ -440,7 +460,8 @@ export default async function DeckEditorPage({
               : `Under ${formatUsd(deck.threshold_amount)}`}
           </span>
         )}
-        <div className="text-muted-foreground ml-auto flex gap-6 text-sm">
+        <DeckValidity problems={problems} variant="chip" />
+        <div className="text-muted-foreground flex flex-wrap gap-x-6 gap-y-1 text-sm sm:ml-auto">
           <span>Total {formatUsd(totals.total_price)}</span>
           <span>Your printings {formatUsd(totals.bling_price)}</span>
           <span>{totals.card_count} cards</span>
@@ -454,12 +475,12 @@ export default async function DeckEditorPage({
         <div className="flex basis-full flex-wrap items-center gap-3 pt-1">
           <LockInButton deckId={deck.id} />
           <LockInBadge lockIn={lockIn} href={lockHref} />
-          {lockCount > 1 && (
+          {showHistory && (
             <Link
               href={`/decks/${deck.id}/locks`}
               className="text-muted-foreground hover:text-foreground text-xs underline"
             >
-              Snapshot history ({lockCount})
+              Snapshot history ({snapshotCount})
             </Link>
           )}
           <ForkButton deckId={deck.id} />
@@ -471,6 +492,7 @@ export default async function DeckEditorPage({
           />
           <ViewCount count={viewCount} />
         </div>
+        <DeckValidity problems={problems} variant="notice" />
       </div>
 
       {isAdmin && (
@@ -509,7 +531,7 @@ export default async function DeckEditorPage({
         <div className="sm:flex-1">
           <AddCardSearch deckId={deck.id} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:mt-[1.625rem] sm:h-12">
           <BuyDeckButton
             cards={cards.map((c) => ({ name: c.name, quantity: c.quantity }))}
           />

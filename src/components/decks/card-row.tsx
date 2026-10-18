@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import { setQuantity } from "@/app/decks/actions";
 import { formatUsd } from "@/lib/format";
@@ -9,6 +15,7 @@ import { BuyCardLink } from "@/components/decks/buy-card-link";
 import { usePreview } from "@/components/decks/deck-preview";
 import { CardRowMenu } from "@/components/decks/card-row-menu";
 import { ManaCost } from "@/components/cards/mana-cost";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 
 /** Quantity shown as a number; click it for a compact − [n] + stepper. */
 function QuantityControl({
@@ -22,41 +29,44 @@ function QuantityControl({
 }) {
   const [open, setOpen] = useState(false);
   const [val, setVal] = useState(String(quantity));
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => setVal(String(quantity)), [quantity]);
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
 
   const apply = (n: number) => {
     if (Number.isFinite(n) && n >= 1 && n !== quantity) onSet(n);
   };
 
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         disabled={pending}
         className="hover:bg-muted min-w-7 rounded px-1.5 py-0.5 text-center font-medium tabular-nums"
         aria-label="Quantity"
+        aria-expanded={open}
         title="Change quantity"
       >
         {quantity}
       </button>
-      {open && (
-        <div className="border-border bg-card absolute left-0 z-50 mt-1 flex items-center gap-1 rounded-md border p-1 shadow-lg">
+      {/* Rendered on <body>, so it isn't clipped by the multi-column list. */}
+      <FloatingPanel
+        anchorRef={triggerRef}
+        open={open}
+        onClose={close}
+        width={128}
+        align="start"
+        label="Change quantity"
+      >
+        <div className="flex items-center gap-1 p-1">
           <button
             type="button"
             onClick={() => apply(quantity - 1)}
             disabled={pending || quantity <= 1}
-            className="border-border hover:bg-muted size-6 rounded border leading-none disabled:opacity-40"
+            className="border-border hover:bg-muted size-8 rounded border leading-none disabled:opacity-40 sm:size-6"
             aria-label="Decrease"
           >
             −
@@ -71,7 +81,7 @@ function QuantityControl({
               }
             }}
             onBlur={() => apply(parseInt(val || "1", 10))}
-            className="border-border w-10 rounded border px-1 py-0.5 text-center text-sm"
+            className="border-border w-10 rounded border px-1 py-0.5 text-center text-base sm:text-sm"
             inputMode="numeric"
             aria-label="Set quantity"
           />
@@ -79,14 +89,14 @@ function QuantityControl({
             type="button"
             onClick={() => apply(quantity + 1)}
             disabled={pending}
-            className="border-border hover:bg-muted size-6 rounded border leading-none"
+            className="border-border hover:bg-muted size-8 rounded border leading-none sm:size-6"
             aria-label="Increase"
           >
             +
           </button>
         </div>
-      )}
-    </div>
+      </FloatingPanel>
+    </>
   );
 }
 
