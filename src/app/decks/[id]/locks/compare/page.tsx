@@ -80,11 +80,14 @@ function Tags({ l }: { l: DiffLine }) {
 
 function ChangeList({
   title,
+  note,
   lines,
   sign,
   total,
 }: {
   title: string;
+  /** Which snapshot these cards come from, e.g. "only in #2". */
+  note: string;
   lines: DiffLine[];
   sign: "+" | "−";
   total: number;
@@ -104,6 +107,9 @@ function ChangeList({
           {title}{" "}
           <span className="font-normal">
             ({count} {count === 1 ? "card" : "cards"})
+          </span>
+          <span className="text-muted-foreground ml-1.5 text-xs font-normal">
+            {note}
           </span>
         </h2>
         <span
@@ -304,15 +310,15 @@ export default async function CompareSnapshotsPage({
         {diff.priced && !missingList ? (
           <dl className="grid gap-1.5 text-sm">
             <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">Cards added</dt>
-              <dd className={`tabular-nums ${deltaClass(diff.addedValue)}`}>
-                {signed(diff.addedValue)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
               <dt className="text-muted-foreground">Cards removed</dt>
               <dd className={`tabular-nums ${deltaClass(-diff.removedValue)}`}>
                 {signed(-diff.removedValue)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Cards added</dt>
+              <dd className={`tabular-nums ${deltaClass(diff.addedValue)}`}>
+                {signed(diff.addedValue)}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
@@ -342,18 +348,22 @@ export default async function CompareSnapshotsPage({
               : "."}
           </p>
         ) : (
+          // Same left/right order as the header: From's cards on the left
+          // (removed), To's cards on the right (added).
           <div className="grid gap-4 md:grid-cols-2">
             <ChangeList
-              title="Added"
-              lines={deckAdded}
-              sign="+"
-              total={countedTotal(deckAdded)}
-            />
-            <ChangeList
               title="Removed"
+              note={`only in #${num(from)}`}
               lines={deckRemoved}
               sign="−"
               total={countedTotal(deckRemoved)}
+            />
+            <ChangeList
+              title="Added"
+              note={`only in #${num(to)}`}
+              lines={deckAdded}
+              sign="+"
+              total={countedTotal(deckAdded)}
             />
           </div>
         ))}
