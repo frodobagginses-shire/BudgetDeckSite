@@ -1,21 +1,28 @@
 /**
  * F-3 — Scryfall nightly sync
  * --------------------------------------------------------------------------
- * Streams the Scryfall "default_cards" bulk file and upserts every paper
- * printing into the `cards` table. Idempotent (upsert on scryfall_id), so a
- * re-run refreshes prices without creating duplicate rows.
+ * Downloads the Scryfall "default_cards" bulk file to a temp file, then streams
+ * it and upserts every paper printing into the `cards` table. Idempotent
+ * (upsert on scryfall_id), so a re-run refreshes prices without creating
+ * duplicate rows.
  *
  * Run:  npm run sync:scryfall
  * Env:  SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY
  *
  * Scryfall etiquette: we send a descriptive User-Agent + Accept header and make
- * only two requests (the bulk index + one file download), well under their
- * rate limits. Bulk data is what they ask heavy consumers to use.
+ * only two requests (the bulk index + one file download, plus a resume request
+ * or two if a connection drops), well under their rate limits. Bulk data is
+ * what they ask heavy consumers to use.
  */
 import { createClient } from "@supabase/supabase-js";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdtemp, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { createGunzip } from "node:zlib";
 import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -23,6 +30,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const USER_AGENT =
   "BudgetDeckSite/1.0 (+https://github.com/frodobagginses-shire/BudgetDeckSite)";
 const BATCH_SIZE = 500;
+const DOWNLOAD_ATTEMPTS = 5;
 
 // Non-playable / non-addable layouts we don't want polluting search or pricing.
 const SKIP_LAYOUTS = new Set([
@@ -157,6 +165,92 @@ function toRow(c: ScryfallCard): CardRow | null {
   };
 }
 
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+// undici's "TypeError: terminated" hides the useful part in `cause`.
+const describe = (e: unknown): string => {
+  const err = e as Error & { cause?: { message?: string } };
+  return err.cause?.message
+    ? `${err.message} (${err.cause.message})`
+    : String(err.message ?? e);
+};
+
+/** Run `fn`, retrying with exponential backoff (2s, 4s, 8s, ...) on failure. */
+async function withRetry<T>(
+  label: string,
+  attempts: number,
+  fn: () => Promise<T>
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (attempt >= attempts) throw e;
+      const waitMs = 1000 * 2 ** attempt;
+      console.warn(
+        `[sync] ${label} failed (attempt ${attempt}/${attempts}): ${describe(e)}; retrying in ${waitMs / 1000}s...`
+      );
+      await sleep(waitMs);
+    }
+  }
+}
+
+/**
+ * One download attempt into `dest`. If an earlier attempt left a partial file,
+ * resume from its last byte with a Range request instead of starting over.
+ * Throws unless the file on disk ends up the size the server reported. The bulk
+ * URL is versioned (timestamp in the filename), so its bytes can't change
+ * between attempts.
+ */
+async function downloadOnce(url: string, dest: string): Promise<number> {
+  const have = await stat(dest)
+    .then((s) => s.size)
+    .catch(() => 0);
+  const headers: Record<string, string> = {
+    "User-Agent": USER_AGENT,
+    // Raw bytes only, so sizes and Range offsets refer to the file itself.
+    "Accept-Encoding": "identity",
+  };
+  if (have > 0) headers.Range = `bytes=${have}-`;
+
+  const res = await fetch(url, { headers });
+  let total: number | null;
+  let flags: "w" | "a";
+  if (res.status === 206) {
+    // Content-Range: bytes <start>-<end>/<total>
+    const range = res.headers.get("content-range") ?? "";
+    const m = /bytes (\d+)-\d+\/(\d+)/.exec(range);
+    if (!m || Number(m[1]) !== have) {
+      await res.body?.cancel();
+      await rm(dest, { force: true }); // start clean on the next attempt
+      throw new Error(`unexpected Content-Range "${range}"`);
+    }
+    total = Number(m[2]);
+    flags = "a";
+  } else if (res.ok) {
+    // Fresh download (or the server ignored Range): write from byte 0.
+    const len = res.headers.get("content-length");
+    total = len ? Number(len) : null;
+    flags = "w";
+  } else {
+    await res.body?.cancel();
+    // 416 means our partial file doesn't fit the remote one; start clean.
+    if (res.status === 416) await rm(dest, { force: true });
+    throw new Error(`bulk download failed: HTTP ${res.status}`);
+  }
+  if (!res.body) throw new Error("bulk download returned no body");
+
+  await pipeline(
+    Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]),
+    createWriteStream(dest, { flags })
+  );
+  const size = (await stat(dest)).size;
+  if (total !== null && size !== total) {
+    throw new Error(`incomplete download: ${size} of ${total} bytes`);
+  }
+  return size;
+}
+
 async function getBulkDownloadUrl(): Promise<string> {
   const res = await fetch("https://api.scryfall.com/bulk-data", {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
@@ -188,13 +282,8 @@ async function upsertBatch(rows: CardRow[]): Promise<void> {
 
 async function main(): Promise<void> {
   const started = Date.now();
-  const url = await getBulkDownloadUrl();
+  const url = await withRetry("bulk-data index", 3, getBulkDownloadUrl);
   console.log(`[sync] downloading default_cards bulk (gzip jsonl): ${url}`);
-
-  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
-  if (!res.ok || !res.body) {
-    throw new Error(`bulk download failed: HTTP ${res.status}`);
-  }
 
   let processed = 0;
   let upserted = 0;
@@ -215,49 +304,67 @@ async function main(): Promise<void> {
     }
   };
 
-  // The file is a gzip-compressed JSON Lines stream (one card object per line),
-  // and it's stored gzipped (not transfer-encoded), so we gunzip it ourselves.
-  const source = Readable.fromWeb(
-    res.body as Parameters<typeof Readable.fromWeb>[0]
-  );
-  const gunzip = createGunzip();
-  const rl = createInterface({ input: gunzip, crlfDelay: Infinity });
+  // Download the whole file to disk first, then parse it from disk. Parsing
+  // straight off the socket kept the connection open for the entire sync,
+  // mostly idle while backpressure from the Supabase upserts throttled reads,
+  // and Scryfall's CDN would sometimes close it partway through ("TypeError:
+  // terminated"). At full speed the ~80 MB file takes seconds.
+  const tmpDir = await mkdtemp(join(tmpdir(), "scryfall-"));
+  const gzPath = join(tmpDir, "default-cards.jsonl.gz");
+  try {
+    const dlStarted = Date.now();
+    const bytes = await withRetry("bulk download", DOWNLOAD_ATTEMPTS, () =>
+      downloadOnce(url, gzPath)
+    );
+    const dlSecs = ((Date.now() - dlStarted) / 1000).toFixed(0);
+    console.log(
+      `[sync] downloaded ${(bytes / 1e6).toFixed(1)} MB in ${dlSecs}s`
+    );
 
-  // pipe() forwards data but not errors, so watch both streams and surface any
-  // failure (a truncated download must fail the job, not import a partial set).
-  let streamErr: Error | null = null;
-  const onErr = (e: Error) => {
-    streamErr = e;
-    rl.close();
-  };
-  source.on("error", onErr);
-  gunzip.on("error", onErr);
-  source.pipe(gunzip);
+    // The file is a gzip-compressed JSON Lines stream (one card object per
+    // line), stored gzipped (not transfer-encoded), so we gunzip it ourselves.
+    const source = createReadStream(gzPath);
+    const gunzip = createGunzip();
+    const rl = createInterface({ input: gunzip, crlfDelay: Infinity });
 
-  for await (const line of rl) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    let card: ScryfallCard;
-    try {
-      card = JSON.parse(trimmed) as ScryfallCard;
-    } catch {
-      continue; // ignore any stray non-JSON line (e.g. an array bracket)
-    }
-    processed++;
-    const row = toRow(card);
-    if (!row) {
-      skipped++;
-      continue;
-    }
-    batch.push(row);
-    if (batch.length >= BATCH_SIZE) {
-      if (processed % 20000 < BATCH_SIZE) {
-        console.log(`[sync] processed ${processed}, upserted ${upserted}…`);
+    // pipe() forwards data but not errors, so watch both streams and surface any
+    // failure (a corrupt file must fail the job, not import a partial set).
+    let streamErr: Error | null = null;
+    const onErr = (e: Error) => {
+      streamErr = e;
+      rl.close();
+    };
+    source.on("error", onErr);
+    gunzip.on("error", onErr);
+    source.pipe(gunzip);
+
+    for await (const line of rl) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let card: ScryfallCard;
+      try {
+        card = JSON.parse(trimmed) as ScryfallCard;
+      } catch {
+        continue; // ignore any stray non-JSON line (e.g. an array bracket)
       }
-      await flush();
+      processed++;
+      const row = toRow(card);
+      if (!row) {
+        skipped++;
+        continue;
+      }
+      batch.push(row);
+      if (batch.length >= BATCH_SIZE) {
+        if (processed % 20000 < BATCH_SIZE) {
+          console.log(`[sync] processed ${processed}, upserted ${upserted}…`);
+        }
+        await flush();
+      }
     }
+    if (streamErr) throw streamErr;
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true });
   }
-  if (streamErr) throw streamErr;
   await flush();
 
   // F-4: recompute cheapest printing per oracle card from the freshly synced data.
