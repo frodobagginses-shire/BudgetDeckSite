@@ -1,27 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import {
+  exportArenaText,
+  exportDeckText,
+  type ExportCard,
+} from "@/lib/deck-text";
 
-export interface ExportCard {
-  name: string;
-  quantity: number;
-  set_code: string | null;
-  collector_number: string | null;
-}
-
-export function ExportMenu({ cards }: { cards: ExportCard[] }) {
+/** Export the deck list (main deck plus sideboard) to the clipboard. */
+export function ExportMenu({
+  cards,
+  sideboard = [],
+}: {
+  cards: ExportCard[];
+  sideboard?: ExportCard[];
+}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const textList = cards.map((c) => `${c.quantity} ${c.name}`).join("\n");
-  const arenaList = cards
-    .map((c) => {
-      const set = c.set_code ? ` (${c.set_code.toUpperCase()})` : "";
-      const num =
-        c.set_code && c.collector_number ? ` ${c.collector_number}` : "";
-      return `${c.quantity} ${c.name}${set}${num}`;
-    })
-    .join("\n");
+  const textList = exportDeckText(cards, sideboard);
+  const arenaList = exportArenaText(cards, sideboard);
 
   const copy = async (label: string, text: string) => {
     try {

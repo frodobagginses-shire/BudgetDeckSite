@@ -4,9 +4,10 @@ Known bugs and small follow-ups. Check items off (or delete them) as they ship.
 
 ## Bugs
 
-- [ ] **Deck page Export leaves out the sideboard.** "Copy as text" (and "Copy for
+- [x] **Deck page Export leaves out the sideboard.** "Copy as text" (and "Copy for
       Arena") on a deck page only copies the main deck. Reported by a tester,
-      2026-11-03.
+      2026-11-03. **Fixed 2026-11-03:** both formats now include the sideboard
+      (text and Arena builders live in `src/lib/deck-text.ts`).
   - Cause: `src/app/decks/[id]/page.tsx` filters to `board === "main"` before
     passing cards to `ExportMenu` (`src/components/decks/export-menu.tsx`), and
     the read-only view (`deck-read-only.tsx`) passes the same main-only list.

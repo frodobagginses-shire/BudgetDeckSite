@@ -19,6 +19,7 @@ import {
 } from "@/components/decks/deck-preview";
 import { DeckReadOnly } from "@/components/decks/deck-read-only";
 import { ExportMenu } from "@/components/decks/export-menu";
+import { toExportCard } from "@/lib/deck-text";
 import { BuyDeckButton } from "@/components/decks/buy-deck-button";
 import { LockInBadge } from "@/components/decks/lock-in-badge";
 import { LockInButton } from "@/components/decks/lock-in-button";
@@ -536,12 +537,10 @@ export default async function DeckEditorPage({
             cards={cards.map((c) => ({ name: c.name, quantity: c.quantity }))}
           />
           <ExportMenu
-            cards={cards.map((c) => ({
-              name: c.name,
-              quantity: c.quantity,
-              set_code: c.set_code,
-              collector_number: c.collector_number,
-            }))}
+            cards={cards.map(toExportCard)}
+            sideboard={allCards
+              .filter((c) => c.board === "side")
+              .map(toExportCard)}
           />
         </div>
       </div>

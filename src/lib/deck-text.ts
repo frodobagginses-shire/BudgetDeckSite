@@ -84,3 +84,58 @@ export function buildDeckText(
   }
   return lines.join("\n");
 }
+
+/** What the deck page's Export menu needs per card (main or sideboard). */
+export interface ExportCard {
+  name: string;
+  quantity: number;
+  set_code: string | null;
+  collector_number: string | null;
+}
+
+/** Trim a priced deck row down to the fields Export uses (keeps the payload
+ * sent to the client small). */
+export function toExportCard(c: ExportCard): ExportCard {
+  return {
+    name: c.name,
+    quantity: c.quantity,
+    set_code: c.set_code,
+    collector_number: c.collector_number,
+  };
+}
+
+const plainLine = (c: ExportCard) => `${c.quantity} ${c.name}`;
+
+const arenaLine = (c: ExportCard) => {
+  const set = c.set_code ? ` (${c.set_code.toUpperCase()})` : "";
+  const num = c.set_code && c.collector_number ? ` ${c.collector_number}` : "";
+  return `${c.quantity} ${c.name}${set}${num}`;
+};
+
+/** "Copy as text": main deck, then a blank line and a Moxfield-style
+ * "SIDEBOARD:" section (same shape as snapshot export; bulk import here,
+ * Moxfield and Archidekt all read it). */
+export function exportDeckText(
+  main: ExportCard[],
+  side: ExportCard[] = []
+): string {
+  const lines = main.map(plainLine);
+  if (side.length) lines.push("", "SIDEBOARD:", ...side.map(plainLine));
+  return lines.join("\n");
+}
+
+/** "Copy for Arena": "<qty> <name> (SET) 123" lines. With a sideboard, uses
+ * Arena's own "Deck" / "Sideboard" sections so it imports to the right zones. */
+export function exportArenaText(
+  main: ExportCard[],
+  side: ExportCard[] = []
+): string {
+  if (!side.length) return main.map(arenaLine).join("\n");
+  return [
+    "Deck",
+    ...main.map(arenaLine),
+    "",
+    "Sideboard",
+    ...side.map(arenaLine),
+  ].join("\n");
+}

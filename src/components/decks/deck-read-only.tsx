@@ -3,6 +3,7 @@ import { formatUsd } from "@/lib/format";
 import type { Deck, DeckTotals, LockIn, PricedCard } from "@/lib/types";
 import { LockInBadge } from "@/components/decks/lock-in-badge";
 import { ExportMenu } from "@/components/decks/export-menu";
+import { toExportCard } from "@/lib/deck-text";
 import { BuyDeckButton } from "@/components/decks/buy-deck-button";
 import { VisitorLockInButton } from "@/components/decks/visitor-lock-in-button";
 import { ForkButton } from "@/components/decks/fork-button";
@@ -175,12 +176,10 @@ export function DeckReadOnly({
               cards={cards.map((c) => ({ name: c.name, quantity: c.quantity }))}
             />
             <ExportMenu
-              cards={cards.map((c) => ({
-                name: c.name,
-                quantity: c.quantity,
-                set_code: c.set_code,
-                collector_number: c.collector_number,
-              }))}
+              cards={cards.map(toExportCard)}
+              sideboard={(
+                otherBoards.find((b) => b.key === "side")?.cards ?? []
+              ).map(toExportCard)}
             />
           </div>
         </div>
