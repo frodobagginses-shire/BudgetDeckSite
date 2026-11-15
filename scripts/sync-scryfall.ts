@@ -6,6 +6,11 @@
  * (upsert on scryfall_id), so a re-run refreshes prices without creating
  * duplicate rows.
  *
+ * Tokens, emblems and helper cards ("On an Adventure", "A Mysterious
+ * Creature") go to their own `tokens` table instead, and each card row keeps
+ * the ids its Scryfall `all_parts` links to (`token_ids`), which the deck
+ * page's Tokens section is built from.
+ *
  * Run:  npm run sync:scryfall
  * Env:  SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY
  *
@@ -32,11 +37,12 @@ const USER_AGENT =
 const BATCH_SIZE = 500;
 const DOWNLOAD_ATTEMPTS = 5;
 
+// Tokens, emblems and helper cards: stored in `tokens`, not `cards`.
+const TOKEN_LAYOUTS = new Set(["token", "double_faced_token", "emblem"]);
+
 // Non-playable / non-addable layouts we don't want polluting search or pricing.
 const SKIP_LAYOUTS = new Set([
-  "token",
-  "double_faced_token",
-  "emblem",
+  ...TOKEN_LAYOUTS,
   "art_series",
   "vanguard",
   "scheme",
@@ -71,7 +77,9 @@ interface ScryfallCard {
   keywords?: string[];
   mana_cost?: string;
   image_uris?: { normal?: string; small?: string; art_crop?: string };
+  all_parts?: { id: string; component: string; name: string }[];
   card_faces?: {
+    oracle_id?: string;
     oracle_text?: string;
     mana_cost?: string;
     image_uris?: { normal?: string; small?: string; art_crop?: string };
@@ -107,6 +115,23 @@ interface CardRow {
   legalities: Record<string, string>;
   released_at: string | null;
   edhrec_rank: number | null;
+  token_ids: string[];
+}
+
+interface TokenRow {
+  scryfall_id: string;
+  oracle_id: string | null;
+  name: string;
+  type_line: string | null;
+  layout: string | null;
+  set_code: string | null;
+  collector_number: string | null;
+  image_normal: string | null;
+  image_small: string | null;
+  price_usd: number | null;
+  games: string[];
+  digital: boolean;
+  released_at: string | null;
 }
 
 const num = (v?: string | null): number | null =>
@@ -162,6 +187,42 @@ function toRow(c: ScryfallCard): CardRow | null {
     legalities: c.legalities ?? {},
     released_at: c.released_at ?? null,
     edhrec_rank: c.edhrec_rank ?? null,
+    token_ids: tokenIds(c),
+  };
+}
+
+/** Ids of the tokens / emblems / helper cards a card makes. Scryfall lists
+ * tokens as "token" and emblems + helpers as "combo_piece"; combo_piece can
+ * also be the card itself or another real card, which the deck_tokens()
+ * lookup drops because they aren't in `tokens`. */
+function tokenIds(c: ScryfallCard): string[] {
+  const ids = new Set<string>();
+  for (const p of c.all_parts ?? []) {
+    if (p.id === c.id) continue;
+    if (p.component === "token" || p.component === "combo_piece") ids.add(p.id);
+  }
+  return [...ids];
+}
+
+/** Token / emblem / helper printings (any game, so a paper card that links to
+ * a digital-only token printing can still be matched by oracle id). */
+function toTokenRow(c: ScryfallCard): TokenRow | null {
+  if (!c.layout || !TOKEN_LAYOUTS.has(c.layout)) return null;
+  const img = c.image_uris ?? c.card_faces?.[0]?.image_uris ?? {};
+  return {
+    scryfall_id: c.id,
+    oracle_id: c.oracle_id ?? c.card_faces?.[0]?.oracle_id ?? null,
+    name: c.name,
+    type_line: c.type_line ?? null,
+    layout: c.layout,
+    set_code: c.set ?? null,
+    collector_number: c.collector_number ?? null,
+    image_normal: img.normal ?? null,
+    image_small: img.small ?? null,
+    price_usd: num(c.prices?.usd),
+    games: c.games ?? [],
+    digital: c.digital ?? false,
+    released_at: c.released_at ?? null,
   };
 }
 
@@ -273,15 +334,35 @@ async function getBulkDownloadUrl(): Promise<string> {
   return url;
 }
 
-async function upsertBatch(rows: CardRow[]): Promise<void> {
+async function upsertBatch<T extends CardRow | TokenRow>(
+  table: "cards" | "tokens",
+  rows: T[]
+): Promise<void> {
   const { error } = await supabase
-    .from("cards")
+    .from(table)
     .upsert(rows, { onConflict: "scryfall_id" });
-  if (error) throw new Error(`upsert failed: ${error.message}`);
+  if (error) throw new Error(`${table} upsert failed: ${error.message}`);
+}
+
+/** Tokens need migration 0043 (the `tokens` table + `cards.token_ids`). Until
+ * it's applied, sync cards exactly as before instead of failing every batch. */
+async function tokensReady(): Promise<boolean> {
+  const { error } = await supabase
+    .from("tokens")
+    .select("scryfall_id", { head: true })
+    .limit(1);
+  if (error) {
+    console.warn(
+      `[sync] WARNING: tokens table not available (${error.message}). Apply migration 0043; syncing cards without tokens for now.`
+    );
+    return false;
+  }
+  return true;
 }
 
 async function main(): Promise<void> {
   const started = Date.now();
+  const withTokens = await tokensReady();
   const url = await withRetry("bulk-data index", 3, getBulkDownloadUrl);
   console.log(`[sync] downloading default_cards bulk (gzip jsonl): ${url}`);
 
@@ -289,15 +370,30 @@ async function main(): Promise<void> {
   let upserted = 0;
   let skipped = 0;
   let errors = 0;
+  let tokensUpserted = 0;
   let batch: CardRow[] = [];
+  let tokenBatch: TokenRow[] = [];
 
   const flush = async (): Promise<void> => {
     if (batch.length === 0) return;
     const toSend = batch;
     batch = [];
     try {
-      await upsertBatch(toSend);
+      await upsertBatch("cards", toSend);
       upserted += toSend.length;
+    } catch (e) {
+      errors++;
+      console.error(`[sync] ${(e as Error).message}`);
+    }
+  };
+
+  const flushTokens = async (): Promise<void> => {
+    if (tokenBatch.length === 0) return;
+    const toSend = tokenBatch;
+    tokenBatch = [];
+    try {
+      await upsertBatch("tokens", toSend);
+      tokensUpserted += toSend.length;
     } catch (e) {
       errors++;
       console.error(`[sync] ${(e as Error).message}`);
@@ -348,12 +444,29 @@ async function main(): Promise<void> {
         continue; // ignore any stray non-JSON line (e.g. an array bracket)
       }
       processed++;
+      const tokenRow = toTokenRow(card);
+      if (tokenRow) {
+        if (!withTokens) {
+          skipped++;
+          continue;
+        }
+        tokenBatch.push(tokenRow);
+        if (tokenBatch.length >= BATCH_SIZE) await flushTokens();
+        continue;
+      }
       const row = toRow(card);
       if (!row) {
         skipped++;
         continue;
       }
-      batch.push(row);
+      if (!withTokens) {
+        // Pre-0043 schema has no token_ids column.
+        const { token_ids: _omit, ...legacy } = row;
+        void _omit;
+        batch.push(legacy as CardRow);
+      } else {
+        batch.push(row);
+      }
       if (batch.length >= BATCH_SIZE) {
         if (processed % 20000 < BATCH_SIZE) {
           console.log(`[sync] processed ${processed}, upserted ${upserted}…`);
@@ -366,6 +479,7 @@ async function main(): Promise<void> {
     await rm(tmpDir, { recursive: true, force: true });
   }
   await flush();
+  await flushTokens();
 
   // F-4: recompute cheapest printing per oracle card from the freshly synced data.
   // Non-fatal: the card data (the critical part) is already saved, so a slow or
@@ -383,7 +497,7 @@ async function main(): Promise<void> {
 
   const secs = ((Date.now() - started) / 1000).toFixed(0);
   console.log(
-    `[sync] done in ${secs}s — processed ${processed}, upserted ${upserted}, skipped ${skipped}, batch-errors ${errors}`
+    `[sync] done in ${secs}s — processed ${processed}, upserted ${upserted}, tokens ${tokensUpserted}, skipped ${skipped}, batch-errors ${errors}`
   );
   if (errors > 0) process.exit(1);
 }

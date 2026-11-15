@@ -90,6 +90,18 @@ export interface PricedCard {
   line_bling: number | null;
 }
 
+/** A token, emblem or helper card a deck makes (from deck_tokens()). */
+export interface DeckToken {
+  scryfall_id: string;
+  name: string;
+  type_line: string | null;
+  set_code: string | null;
+  collector_number: string | null;
+  image_normal: string | null;
+  /** Names of the cards in the main deck / sideboard that make it. */
+  made_by: string[];
+}
+
 export interface ArticleSummary {
   slug: string;
   title: string;

@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { formatUsd } from "@/lib/format";
-import type { Deck, DeckTotals, LockIn, PricedCard } from "@/lib/types";
+import type {
+  Deck,
+  DeckToken,
+  DeckTotals,
+  LockIn,
+  PricedCard,
+} from "@/lib/types";
 import { LockInBadge } from "@/components/decks/lock-in-badge";
 import { ExportMenu } from "@/components/decks/export-menu";
 import { toExportCard } from "@/lib/deck-text";
@@ -17,6 +23,7 @@ import { ViewCount } from "@/components/decks/view-count";
 import { ColorPips } from "@/components/cards/color-pips";
 import { DeckBanner } from "@/components/decks/deck-banner";
 import { DeckCardList } from "@/components/decks/deck-card-list";
+import { DeckTokens } from "@/components/decks/deck-tokens";
 import {
   PreviewProvider,
   DeckPreviewPane,
@@ -31,6 +38,7 @@ export function DeckReadOnly({
   ownerHandle,
   cards,
   otherBoards = [],
+  tokens = [],
   totals,
   lockIn,
   lockCount = 0,
@@ -55,6 +63,7 @@ export function DeckReadOnly({
     cards: PricedCard[];
     counted: boolean;
   }[];
+  tokens?: DeckToken[];
   totals: DeckTotals;
   lockIn: LockIn | null;
   lockCount?: number;
@@ -72,6 +81,8 @@ export function DeckReadOnly({
 }) {
   const overBudget =
     deck.threshold_amount != null && totals.budget_price > deck.threshold_amount;
+  const sideBoard = otherBoards.find((b) => b.key === "side");
+  const toBuyCard = (c: PricedCard) => ({ name: c.name, quantity: c.quantity });
 
   // Mana curve over non-land cards (0..7+).
   const curve = new Array(8).fill(0) as number[];
@@ -173,13 +184,14 @@ export function DeckReadOnly({
           {canLock && <ForkButton deckId={deck.id} />}
           <div className="ml-auto flex items-center gap-2">
             <BuyDeckButton
-              cards={cards.map((c) => ({ name: c.name, quantity: c.quantity }))}
+              cards={cards.map(toBuyCard)}
+              sideboard={(sideBoard?.cards ?? []).map(toBuyCard)}
+              tokens={tokens}
+              sideboardCounted={sideBoard?.counted ?? false}
             />
             <ExportMenu
               cards={cards.map(toExportCard)}
-              sideboard={(
-                otherBoards.find((b) => b.key === "side")?.cards ?? []
-              ).map(toExportCard)}
+              sideboard={(sideBoard?.cards ?? []).map(toExportCard)}
             />
           </div>
         </div>
@@ -223,6 +235,8 @@ export function DeckReadOnly({
 
       {/* Card list */}
       <DeckCardList cards={cards} variant="view" deckId={deck.id} />
+
+      <DeckTokens tokens={tokens} />
 
       {/* Sideboard / other boards */}
       {otherBoards.map((b) => (

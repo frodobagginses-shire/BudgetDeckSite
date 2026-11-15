@@ -50,7 +50,32 @@ export function manapoolHomeUrl(): string {
   return withRef("https://manapool.com/");
 }
 
-/** "1 Sol Ring\n1 Llanowar Elves" — for pasting into Mass Entry. */
-export function deckListText(cards: BuyCard[]): string {
-  return cards.map((c) => `${c.quantity} ${c.name}`).join("\n");
+export interface BuyToken {
+  name: string;
+  set_code: string | null;
+  collector_number: string | null;
+}
+
+/** "1 Elemental [TEOC] 8". Tokens need the set + number: several share a name
+ * (a deck can make three different Elementals), and Mana Pool's name-only
+ * match picks whichever one it likes. */
+export function tokenLine(t: BuyToken): string {
+  const set = t.set_code ? ` [${t.set_code.toUpperCase()}]` : "";
+  const num = t.set_code && t.collector_number ? ` ${t.collector_number}` : "";
+  return `1 ${t.name}${set}${num}`;
+}
+
+/** "1 Sol Ring\n1 Llanowar Elves" — for pasting into Mass Entry. It's a
+ * shopping list, so a card in both main deck and sideboard becomes one line
+ * with the combined quantity. Tokens go last. */
+export function deckListText(
+  cards: BuyCard[],
+  tokens: BuyToken[] = []
+): string {
+  const qty = new Map<string, number>();
+  for (const c of cards) qty.set(c.name, (qty.get(c.name) ?? 0) + c.quantity);
+  return [
+    ...[...qty].map(([name, q]) => `${q} ${name}`),
+    ...tokens.map(tokenLine),
+  ].join("\n");
 }

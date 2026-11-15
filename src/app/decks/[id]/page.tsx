@@ -12,6 +12,7 @@ import { ColorPips } from "@/components/cards/color-pips";
 import { DeckBanner } from "@/components/decks/deck-banner";
 import { CardRow } from "@/components/decks/card-row";
 import { DeckCardList } from "@/components/decks/deck-card-list";
+import { DeckTokens } from "@/components/decks/deck-tokens";
 import { ArchetypePicker } from "@/components/decks/archetype-picker";
 import {
   PreviewProvider,
@@ -57,6 +58,7 @@ import {
   OPTIONAL_PRICED_BOARDS,
   type Board,
   type Deck,
+  type DeckToken,
   type DeckTotals,
   type DeckRecord,
   type LockIn,
@@ -154,7 +156,16 @@ export default async function DeckEditorPage({
     a.name.localeCompare(b.name)
   );
   const cards = allCards.filter((c) => c.board === "main");
+  const sideboard = allCards.filter((c) => c.board === "side");
   const pricedBoards: Board[] = (deck.priced_boards as Board[]) ?? ["main"];
+
+  // Tokens, emblems and helper cards the main deck + sideboard make. Empty
+  // (section hidden) if the lookup fails or the sync hasn't filled it yet.
+  const { data: tokenData } = await supabase.rpc("deck_tokens", {
+    p_deck_id: id,
+  });
+  const tokens = (tokenData ?? []) as DeckToken[];
+  const toBuyCard = (c: PricedCard) => ({ name: c.name, quantity: c.quantity });
   const otherBoards: { key: Board; label: string }[] = [
     { key: "considering", label: "Considering" },
     { key: "side", label: "Sideboard" },
@@ -294,6 +305,7 @@ export default async function DeckEditorPage({
         ownerHandle={(owner?.handle as string) ?? null}
         cards={cards}
         otherBoards={visitorBoards}
+        tokens={tokens}
         totals={totals}
         lockIn={lockIn}
         lockCount={snapshotCount}
@@ -534,13 +546,14 @@ export default async function DeckEditorPage({
         </div>
         <div className="flex items-center gap-2 sm:mt-[1.625rem] sm:h-12">
           <BuyDeckButton
-            cards={cards.map((c) => ({ name: c.name, quantity: c.quantity }))}
+            cards={cards.map(toBuyCard)}
+            sideboard={sideboard.map(toBuyCard)}
+            tokens={tokens}
+            sideboardCounted={pricedBoards.includes("side")}
           />
           <ExportMenu
             cards={cards.map(toExportCard)}
-            sideboard={allCards
-              .filter((c) => c.board === "side")
-              .map(toExportCard)}
+            sideboard={sideboard.map(toExportCard)}
           />
         </div>
       </div>
@@ -586,6 +599,8 @@ export default async function DeckEditorPage({
           commanderEligible={deck.game_format === "commander"}
         />
       )}
+
+      <DeckTokens tokens={tokens} />
 
       {/* Other boards */}
       {otherBoards.map(({ key, label }) => {
