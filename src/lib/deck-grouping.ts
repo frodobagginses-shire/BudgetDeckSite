@@ -45,6 +45,8 @@ export interface CardGroup {
   label: string;
   cards: PricedCard[];
   count: number;
+  /** Price of the group's cards that count toward the budget (free cards
+   * such as basics or proxies are left out, matching the deck total). */
   subtotal: number;
   icon: GroupIcon | null;
 }
@@ -252,7 +254,10 @@ export function groupAndSort(
       icon: v.icon,
       cards: sorted,
       count: sorted.reduce((s, c) => s + c.quantity, 0),
-      subtotal: sorted.reduce((s, c) => s + (c.line_cheapest ?? 0), 0),
+      subtotal: sorted.reduce(
+        (s, c) => s + (c.counts_toward_budget ? (c.line_cheapest ?? 0) : 0),
+        0
+      ),
     };
   });
 

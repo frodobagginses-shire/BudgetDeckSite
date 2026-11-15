@@ -100,6 +100,34 @@ function QuantityControl({
   );
 }
 
+/** A card's line price. Free cards (not counted toward the budget) get a
+ * "free" tag and a faded, struck-through price so they read as excluded. */
+export function LinePrice({ card }: { card: PricedCard }) {
+  const free = !card.counts_toward_budget;
+  return (
+    <>
+      {free && (
+        <span
+          className="text-muted-foreground text-[10px] uppercase"
+          title="Not counted toward budget"
+        >
+          free
+        </span>
+      )}
+      <span
+        className={`w-16 text-right tabular-nums ${
+          free
+            ? "text-muted-foreground/50 line-through"
+            : "text-muted-foreground"
+        }`}
+        title={free ? "Not counted toward budget" : undefined}
+      >
+        {formatUsd(card.line_cheapest)}
+      </span>
+    </>
+  );
+}
+
 export function CardRow({
   deckId,
   card,
@@ -146,18 +174,7 @@ export function CardRow({
 
       {showMana && <ManaCost cost={card.mana_cost} />}
 
-      {!card.counts_toward_budget && (
-        <span
-          className="text-muted-foreground text-[10px] uppercase"
-          title="Not counted toward budget"
-        >
-          free
-        </span>
-      )}
-
-      <span className="text-muted-foreground w-16 text-right tabular-nums">
-        {formatUsd(card.line_cheapest)}
-      </span>
+      <LinePrice card={card} />
 
       <BuyCardLink name={card.name} />
 

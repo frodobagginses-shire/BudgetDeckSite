@@ -12,7 +12,7 @@ import {
   type SortDir,
   type GroupIcon,
 } from "@/lib/deck-grouping";
-import { CardRow } from "@/components/decks/card-row";
+import { CardRow, LinePrice } from "@/components/decks/card-row";
 import { usePreview } from "@/components/decks/deck-preview";
 import { BuyCardLink } from "@/components/decks/buy-card-link";
 import { ManaCost } from "@/components/cards/mana-cost";
@@ -183,9 +183,7 @@ export function DeckCardList({
                       {c.name}
                     </button>
                     {showMana && <ManaCost cost={c.mana_cost} />}
-                    <span className="text-muted-foreground w-16 text-right tabular-nums">
-                      {formatUsd(c.line_cheapest)}
-                    </span>
+                    <LinePrice card={c} />
                     <BuyCardLink name={c.name} />
                   </div>
                 )
