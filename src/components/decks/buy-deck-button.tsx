@@ -11,7 +11,8 @@ import {
 /** Mana Pool generates the deck token on their end, so we copy the list and
  * open their Mass Entry. A confirm dialog makes the "paste it" step obvious
  * before we send the user off (and opening from this click dodges popup blockers).
- * The dialog also lets the buyer add the sideboard and the deck's tokens. */
+ * The dialog lets the buyer pick any mix of main deck, sideboard and tokens
+ * (e.g. just the tokens, for someone who already owns the deck). */
 export function BuyDeckButton({
   cards,
   sideboard = [],
@@ -25,16 +26,29 @@ export function BuyDeckButton({
   sideboardCounted?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [withMain, setWithMain] = useState(true);
   const [withSide, setWithSide] = useState(sideboardCounted);
   const [withTokens, setWithTokens] = useState(false);
   if (cards.length === 0) return null;
 
+  const mainCount = cards.reduce((s, c) => s + c.quantity, 0);
   const sideCount = sideboard.reduce((s, c) => s + c.quantity, 0);
-  const list = withSide ? [...cards, ...sideboard] : cards;
+  const hasSide = sideboard.length > 0;
+  const list = [
+    ...(withMain ? cards : []),
+    ...(withSide && hasSide ? sideboard : []),
+  ];
   const cardCount = list.reduce((s, c) => s + c.quantity, 0);
   const tokenList = withTokens ? tokens : [];
+  const nothingPicked = list.length === 0 && tokenList.length === 0;
+  const tokenWord = (n: number) => `${n} ${n === 1 ? "token" : "tokens"}`;
+  const summary =
+    cardCount > 0
+      ? `your ${cardCount}-card list${tokenList.length > 0 ? ` plus ${tokenWord(tokenList.length)}` : ""}`
+      : tokenWord(tokenList.length);
 
   const go = () => {
+    if (nothingPicked) return;
     // Open + copy within this click so the popup isn't blocked and the
     // clipboard write counts as a user gesture.
     window.open(manapoolDeckUrl(), "_blank", "noopener,noreferrer");
@@ -70,40 +84,51 @@ export function BuyDeckButton({
               Buy this deck on Mana Pool
             </div>
             <p className="text-muted-foreground mt-2 text-sm">
-              We&apos;ll copy your {cardCount}-card list
-              {tokenList.length > 0 &&
-                ` plus ${tokenList.length} ${tokenList.length === 1 ? "token" : "tokens"}`}{" "}
-              and open Mana Pool&apos;s bulk entry in a new tab. Paste the list
-              into the box there, then check out.
+              {nothingPicked ? (
+                <>Pick at least one thing below to copy.</>
+              ) : (
+                <>
+                  We&apos;ll copy {summary} and open Mana Pool&apos;s bulk entry
+                  in a new tab. Paste the list into the box there, then check
+                  out.
+                </>
+              )}
             </p>
 
-            {(sideboard.length > 0 || tokens.length > 0) && (
-              <fieldset className="mt-4 flex flex-col gap-2 text-sm">
-                <legend className="sr-only">What to copy</legend>
-                {sideboard.length > 0 && (
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={withSide}
-                      onChange={(e) => setWithSide(e.target.checked)}
-                      className="accent-brand-600 size-4"
-                    />
-                    Include sideboard ({sideCount})
-                  </label>
-                )}
-                {tokens.length > 0 && (
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={withTokens}
-                      onChange={(e) => setWithTokens(e.target.checked)}
-                      className="accent-brand-600 size-4"
-                    />
-                    Include tokens ({tokens.length})
-                  </label>
-                )}
-              </fieldset>
-            )}
+            <fieldset className="mt-4 flex flex-col gap-2 text-sm">
+              <legend className="sr-only">What to copy</legend>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={withMain}
+                  onChange={(e) => setWithMain(e.target.checked)}
+                  className="accent-brand-600 size-4"
+                />
+                Include main deck ({mainCount})
+              </label>
+              {hasSide && (
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={withSide}
+                    onChange={(e) => setWithSide(e.target.checked)}
+                    className="accent-brand-600 size-4"
+                  />
+                  Include sideboard ({sideCount})
+                </label>
+              )}
+              {tokens.length > 0 && (
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={withTokens}
+                    onChange={(e) => setWithTokens(e.target.checked)}
+                    className="accent-brand-600 size-4"
+                  />
+                  Include tokens ({tokens.length})
+                </label>
+              )}
+            </fieldset>
             {tokenList.length > 0 && (
               <p className="text-muted-foreground mt-2 text-xs">
                 Mana Pool opens on &ldquo;Any Printing&rdquo;, which can swap in
@@ -134,7 +159,8 @@ export function BuyDeckButton({
               <button
                 type="button"
                 onClick={go}
-                className="bg-brand-600 rounded-md px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+                disabled={nothingPicked}
+                className="bg-brand-600 rounded-md px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Copy list &amp; open Mana Pool
               </button>
